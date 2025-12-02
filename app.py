@@ -40,7 +40,7 @@ def get_analysis(text, model):
     try:
         if "Gemini" in model:
             genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-1.5-flash-latest')
             return model.generate_content(f"{system_prompt}\n\nUser Text: {text}").text
             
         elif "OpenAI" in model:
@@ -75,3 +75,4 @@ if st.button("Analyze Purity"):
     else:
 
         st.warning("Please enter text first.")
+
