@@ -75,4 +75,13 @@ if st.button("Analyze Purity"):
     else:
 
         st.warning("Please enter text first.")
+# --- DIAGNOSTIC: PASTE AT BOTTOM OF APP.PY ---
+try:
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+    st.write("### Available Models for your Key:")
+    for m in genai.list_models():
+        if 'generateContent' in m.supported_generation_methods:
+            st.code(m.name)
+except Exception as e:
+    st.write(f"Key Error: {e}")
 
