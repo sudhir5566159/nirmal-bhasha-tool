@@ -1,39 +1,104 @@
 import streamlit as st
 import google.generativeai as genai
+import openai
+import anthropic
 
-st.set_page_config(page_title="Debug Mode")
-st.title("🛠️ System Diagnostic")
+# --- PAGE CONFIGURATION ---
+st.set_page_config(
+    page_title="Nirmal-Bhasha AI",
+    page_icon="🕉️",
+    layout="centered"
+)
 
-# 1. Verify the App is New
-st.success("✅ The App has successfully updated! (If you see this, the code is live)")
+# --- CSS FOR "WHITE LABEL" LOOK ---
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            .stTextArea textarea {font-size: 18px !important;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# 2. Test the API Key Connection
-try:
-    # Get key from secrets
-    api_key = st.secrets["GOOGLE_API_KEY"]
-    st.write(f"🔑 API Key loaded: `{api_key[:5]}...` (Hidden for safety)")
-    
-    # Configure Google AI
-    genai.configure(api_key=api_key)
-    
-    # 3. ASK GOOGLE: "What models can I actually use?"
-    st.subheader("📋 Models available to YOUR specific Key:")
-    
-    available_models = []
-    for m in genai.list_models():
-        if 'generateContent' in m.supported_generation_methods:
-            available_models.append(m.name)
-            st.code(f"Model found: {m.name}")
+# --- 1. THE UI LAYOUT ---
+st.title("🕉️ Nirmal-Bhasha: Hindi Purity Analyzer")
+st.markdown("### Check the 'Shuddhata' (Purity) of your Hindi text.")
+
+# Dropdown for Model Selection
+model_choice = st.selectbox(
+    "Choose your Linguist Engine / विशेषज्ञ चुनें:",
+    ["Gemini 2.0 Flash (Google) - Free/Fast", 
+     "GPT-4o (OpenAI) - Most Precise", 
+     "Claude 3.5 Sonnet (Anthropic) - Best for Literature"]
+)
+
+# Text Input Area
+user_text = st.text_area(
+    "Enter text here / अपना पाठ यहाँ लिखें:",
+    height=200,
+    placeholder="Example: Main aaj market gaya tha aur wahan se vegetables khareeda."
+)
+
+# --- 2. THE LOGIC FUNCTION ---
+def get_purity_analysis(text, model_name):
+    # The Secret System Prompt
+    system_prompt = """
+    You are 'Nirmal-Bhasha', a Hindi Etymology Expert. 
+    Analyze the user's text. 
+    1. Calculate a 'Purity Score' (0-100%) based on the usage of Tatsam/Tadbhav words vs Videshi words.
+    2. List the 'Videshi' (Foreign) words found and provide their 'Shuddh Hindi' alternatives.
+    3. Rewrite the sentence in pure Standard Hindi.
+    4. Format the output with bold headings and bullet points using Markdown.
+    """
+
+    try:
+        # LOGIC FOR GOOGLE GEMINI (UPDATED TO 2.0)
+        if "Gemini" in model_name:
+            # We use the key from your secrets file
+            genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
             
-    # 4. Try a Test Generation with the first available model
-    if available_models:
-        test_model = available_models[0]
-        st.info(f"🧪 Testing connection with: {test_model}...")
-        model = genai.GenerativeModel(test_model)
-        response = model.generate_content("Hello, are you working?")
-        st.success(f"🎉 SUCCESS! Response: {response.text}")
-    else:
-        st.error("❌ No compatible models found for this API Key. You may need to enable the API in Google Cloud Console.")
+            # UPDATED MODEL NAME BASED ON YOUR DIAGNOSTIC
+            model = genai.GenerativeModel('gemini-2.0-flash')
+            
+            combined_prompt = f"{system_prompt}\n\nUser Text: {text}"
+            response = model.generate_content(combined_prompt)
+            return response.text
 
-except Exception as e:
-    st.error(f"⚠️ CRITICAL ERROR: {str(e)}")
+        # LOGIC FOR OPENAI (GPT-4)
+        elif "OpenAI" in model_name:
+            client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": text}
+                ]
+            )
+            return response.choices[0].message.content
+
+        # LOGIC FOR ANTHROPIC (CLAUDE)
+        elif "Anthropic" in model_name:
+            client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
+            message = client.messages.create(
+                model="claude-3-5-sonnet-20240620",
+                max_tokens=1000,
+                system=system_prompt,
+                messages=[
+                    {"role": "user", "content": text}
+                ]
+            )
+            return message.content[0].text
+
+    except Exception as e:
+        return f"Error connecting to AI: {str(e)}"
+
+# --- 3. THE EXECUTION ---
+if st.button("Analyze Purity / विश्लेषण करें", type="primary"):
+    if user_text:
+        with st.spinner("Consulting the linguistic archives..."):
+            result = get_purity_analysis(user_text, model_choice)
+            st.markdown("---")
+            st.markdown(result)
+    else:
+        st.warning("Please enter some Hindi text first.")
