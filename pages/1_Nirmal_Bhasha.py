@@ -4,28 +4,28 @@ from utils import show_header, get_ai_response, load_correction_rules
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Nirmal-Bhasha", page_icon="🪷")
 
-# 1. TOP HEADER (ShabdaSankalan Umbrella)
+# 1. SHOW MAIN UMBRELLA HEADER (The "ShabdaSankalan" top bar)
 show_header()
 
-# 2. BRANDING SECTION (Logo + Hindi Name)
-col1, col2, col3 = st.columns([1, 2, 1])
+# 2. COMPACT TOOL HEADER (Logo + Text Side-by-Side)
+# We make two columns: A small one for the logo, a wider one for the text
+col_logo, col_text = st.columns([1, 4])
 
-with col2:
-    # Display the Logo Image
-    st.image("nirmal_logo.png", use_container_width=True)
-    
-    # Display the Name in Hindi (Centered & Bold)
+with col_logo:
+    # We restrict the width to 90 pixels so it stays sharp and small
+    st.image("nirmal_logo.png", width=90)
+
+with col_text:
+    # We use Custom HTML to align the text perfectly with the logo
     st.markdown("""
-        <h2 style='text-align: center; color: #333;'>
-            निर्मल-भाषा
-        </h2>
-        <p style='text-align: center; color: gray; margin-top: -10px;'>
-            Pure Language Analysis
-        </p>
+        <div style="padding-top: 10px;">
+            <h2 style="margin: 0; color: #333;">Nirmal-Bhasha (निर्मल-भाषा)</h2>
+            <p style="margin: 0; color: gray; font-size: 14px;">Pure Language Analysis Tool</p>
+        </div>
         """, unsafe_allow_html=True)
 
 # 3. TOOL INTERFACE
-st.markdown("---") # A light line separator
+st.markdown("---")
 model = st.selectbox("Engine / इंजन:", ["Gemini 2.0 Flash (Google)", "GPT-4o (OpenAI)"])
 text = st.text_area("Enter Text / पाठ दर्ज करें:", height=150, placeholder="Example: Meri gaadi kharab ho gayi hai.")
 
