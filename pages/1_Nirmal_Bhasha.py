@@ -53,7 +53,7 @@ st.markdown("---") # Thin divider line
 col_input, col_settings = st.columns([3, 1])
 
 with col_settings:
-    model = st.selectbox("Engine / इंजन:", ["Gemini 2.0 Flash", "GPT-4o"], label_visibility="collapsed")
+    model = st.selectbox("Engine:", ["Gemini 2.0 Flash (Google)", "Meta Llama 3 (via Groq)"], label_visibility="collapsed")
 
 with col_input:
     # ADDED HINDI INSTRUCTION
