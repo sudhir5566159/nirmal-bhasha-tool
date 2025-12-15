@@ -55,7 +55,7 @@ col_input, col_settings = st.columns([3, 1])
 with col_settings:
     model = st.selectbox("Engine:", ["Gemini 2.0 Flash", "GPT-4o"], label_visibility="collapsed")
 with col_input:
-    st.caption("Select Engine above | Enter text below:")
+    st.caption("Select Engine | Enter text below:")
 
 text = st.text_area("Input Text", height=150, placeholder="Start typing here... (e.g., Meri gaadi kharab hai)", label_visibility="collapsed")
 
