@@ -16,15 +16,12 @@ with col_endorser:
         """, unsafe_allow_html=True)
 
 # --- 2. HERO BRANDING (Horizontal Lockup) ---
-# Adjusted columns to fit the larger logo
 col_logo, col_text = st.columns([1.5, 4.5])
 
 with col_logo:
-    # INCREASED SIZE: 120px makes the tagline readable
     st.image("nirmal_logo.png", width=120)
 
 with col_text:
-    # Text aligned to the larger logo
     st.markdown("""
         <div style="padding-top: 10px;">
             <h1 style="
@@ -47,19 +44,22 @@ with col_text:
         """, unsafe_allow_html=True)
 
 # --- 3. THE TOOL INTERFACE ---
-st.markdown("---") # Thin divider line
+st.markdown("---") 
 
 # Tool Controls
 col_input, col_settings = st.columns([3, 1])
 
 with col_settings:
-    model = st.selectbox("Engine:", ["Gemini 2.0 Flash (Google)", "Meta Llama 3 (via Groq)"], label_visibility="collapsed")
+    # UPDATED LABEL HERE: Now correctly says "Gemini 2.5 Flash"
+    model = st.selectbox(
+        "Engine / इंजन:", 
+        ["Gemini 2.5 Flash (Google)", "Meta Llama 3 (via Groq)", "Claude 3.5 Sonnet (Anthropic)"], 
+        label_visibility="collapsed"
+    )
 
 with col_input:
-    # ADDED HINDI INSTRUCTION
     st.caption("Select Engine above | Enter text below (इंजन चुनें | पाठ दर्ज करें):")
 
-# ADDED HINDI PLACEHOLDER
 text = st.text_area(
     "Input Text", 
     height=150, 
