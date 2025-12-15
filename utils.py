@@ -1,73 +1,75 @@
 import streamlit as st
 import google.generativeai as genai
-import openai
-import anthropic
+from groq import Groq
 import json
 
-# --- SHARED: LOGO DISPLAY FUNCTION ---
+# --- AUTHENTICATION ---
+# 1. Google Gemini
+try:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+except:
+    pass # Handle errors silently if key is missing
+
+# 2. Groq (Meta Llama 3)
+try:
+    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+except:
+    groq_client = None
+
+# --- HEADER FUNCTION ---
 def show_header():
-    # CSS to hide default Streamlit branding
-    st.markdown("""
-        <style>
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        header {visibility: hidden;}
-        </style>
-        """, unsafe_allow_html=True)
-    
     col1, col2 = st.columns([1, 5])
     with col1:
-        # SVG Logo (Pink Lotus)
-        st.markdown("""
-            <div style="display: flex; justify-content: center;">
-                <svg width="70" height="70" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M50 10 C50 10 30 40 10 50 C30 60 50 90 50 90 C50 90 70 60 90 50 C70 40 50 10 50 10 Z" fill="#E91E63" stroke="#C2185B" stroke-width="2"/>
-                    <circle cx="50" cy="50" r="5" fill="#FFC107" />
-                    <path d="M50 90 Q30 80 20 60 M50 90 Q70 80 80 60" stroke="#4CAF50" stroke-width="3" fill="none"/>
-                </svg>
-            </div>
-            """, unsafe_allow_html=True)
+        # Shows the uploaded logo if available, otherwise a default emoji
+        try:
+            st.image("nirmal_logo.png", width=60)
+        except:
+            st.write("🪷")
     with col2:
-        st.title("ShabdaSankalan AI")
-        st.caption("The Digital Infrastructure for Hindi Language")
+        st.markdown("""
+            <h3 style='margin-bottom:0; color: #ff4b4b;'>ShabdaSankalan AI</h3>
+            <p style='margin-top:0; font-size: 14px; color: gray;'>The Digital Infrastructure for Hindi Language</p>
+            """, unsafe_allow_html=True)
     st.markdown("---")
 
-# --- SHARED: AI API LOGIC ---
-def get_ai_response(system_prompt, user_prompt, model_choice):
+# --- AI RESPONSE FUNCTION ---
+def get_ai_response(system_prompt, user_text, engine):
     try:
-        if "Gemini" in model_choice:
-            genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-            model = genai.GenerativeModel('gemini-2.0-flash') 
-            return model.generate_content(f"{system_prompt}\n\nUser Input: {user_prompt}").text
+        # OPTION 1: GOOGLE GEMINI (The Default)
+        if "Gemini" in engine:
+            model = genai.GenerativeModel("gemini-2.0-flash-exp")
+            response = model.generate_content(system_prompt + "\n\nUser Input: " + user_text)
+            return response.text
 
-        elif "OpenAI" in model_choice:
-            client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-            response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+        # OPTION 2: META LLAMA 3 (via Groq)
+        elif "Llama" in engine or "Meta" in engine:
+            if not groq_client:
+                return "Error: Groq API Key not found in Secrets."
+            
+            completion = groq_client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_text}
+                ],
+                model="llama3-70b-8192", # Using the big powerful version
             )
-            return response.choices[0].message.content
+            return completion.choices[0].message.content
 
-        elif "Anthropic" in model_choice:
-            client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-            msg = client.messages.create(
-                model="claude-3-5-sonnet-20240620",
-                max_tokens=1000,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}]
-            )
-            return msg.content[0].text
+        # OPTION 3: OPENAI (Paid)
+        elif "GPT" in engine:
+            return "OpenAI is currently not connected (Paid Tier required)."
+
+        else:
+            return "Error: Unknown Engine Selected"
+
     except Exception as e:
         return f"Error: {str(e)}"
 
-# --- SHARED: LOAD CORRECTIONS ---
+# --- LOAD CORRECTIONS ---
 def load_correction_rules():
     try:
-        with open('corrections.json', 'r', encoding='utf-8') as f:
+        with open("corrections.json", "r", encoding="utf-8") as f:
             data = json.load(f)
-            rules_text = ""
-            for rule in data['correction_rules']:
-                rules_text += f"- If you see '{rule['word']}', Origin is {rule['origin']}. Replacement: '{rule['replacement']}'.\n"
-            return rules_text
+            return str(data["correction_rules"])
     except:
-        return ""
+        return "No correction rules found."
