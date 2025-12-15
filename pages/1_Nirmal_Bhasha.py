@@ -4,7 +4,7 @@ from utils import get_ai_response, load_correction_rules
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Nirmal-Bhasha", page_icon="🪷", layout="centered")
 
-# --- 1. ENDORSEMENT HEADER (Subtle Top-Right) ---
+# --- 1. ENDORSEMENT HEADER ---
 col_empty, col_endorser = st.columns([3, 1])
 with col_endorser:
     st.markdown("""
@@ -15,7 +15,7 @@ with col_endorser:
         </div>
         """, unsafe_allow_html=True)
 
-# --- 2. HERO BRANDING (Horizontal Lockup) ---
+# --- 2. HERO BRANDING ---
 col_logo, col_text = st.columns([1.5, 4.5])
 
 with col_logo:
@@ -50,7 +50,6 @@ st.markdown("---")
 col_input, col_settings = st.columns([3, 1])
 
 with col_settings:
-    # UPDATED LABEL HERE: Now correctly says "Gemini 2.5 Flash"
     model = st.selectbox(
         "Engine / इंजन:", 
         ["Gemini 2.5 Flash (Google)", "Meta Llama 3 (via Groq)", "Claude 3.5 Sonnet (Anthropic)"], 
@@ -70,14 +69,51 @@ text = st.text_area(
 # Action Button
 if st.button("Analyze Purity / शुद्धता जांचें", type="primary", use_container_width=True):
     rules = load_correction_rules()
+    
+    # --- THE "STUNNING" PROMPT ---
+    # We explicitly tell the AI to format the top section with Emojis, Tables, and Progress Bars.
     sys_prompt = f"""
-    You are 'Nirmal-Bhasha' (निर्मल-भाषा). 
-    RULES: Output MUST be in Devanagari Hindi.
-    Calculate Purity Score. Identify Foreign words.
-    CRITICAL CORRECTION LIST:
+    You are 'Nirmal-Bhasha' (निर्मल-भाषा), the most advanced Hindi Purity Analyzer.
+    
+    YOUR GOAL: Analyze the input text for foreign words (Urdu, English, Persian, Arabic) and provide a corrected Pure Hindi version.
+    
+    OUTPUT FORMAT REQUIREMENTS (STRICT):
+    1. Start with a **"Visual Dashboard"** using Markdown tables and large emojis.
+    2. Use a **"Visual Progress Bar"** for the score (e.g., 🟩🟩🟩🟩⬜ 80%).
+    3. Then provide the **Detailed Analysis** (the text analysis you usually do).
+    4. Finally, provide the **Refined Sentence**.
+
+    CRITICAL CORRECTION RULES (Apply these fixes):
     {rules}
-    Structure response with 'Purity Analysis', 'Word Correction' (Table), and 'Refined Sentence'.
+
+    ---
+    EXPECTED OUTPUT STRUCTURE (Copy this style):
+
+    # 🕉️ निर्मल-भाषा विश्लेषण रिपोर्ट (Nirmal-Bhasha Report)
+
+    ### 📊 शुद्धता स्कोर (Purity Score)
+    > **95.21%** 🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ (Excellent)
+
+    | 📜 कुल शब्द (Total) | 🚫 विदेशी शब्द (Foreign) | ✅ शुद्ध शब्द (Pure) |
+    | :---: | :---: | :---: |
+    | **146** | **7** | **139** |
+
+    ---
+
+    ### 🔍 विस्तृत विश्लेषण (Detailed Analysis)
+    (Provide your detailed word-by-word analysis here as you usually do...)
+
+    ### 🛠️ शब्द सुधार (Word Correction)
+    | ❌ अशुद्ध/विदेशी | 🌍 मूल (Origin) | ✅ शुद्ध हिन्दी (Correction) |
+    | :--- | :--- | :--- |
+    | (Fill this table...) | ... | ... |
+
+    ### ✨ परिशोधित वाक्य (Refined Sentence)
+    > (Write the final pure Hindi paragraph here...)
+    
+    ---
     """
+    
     if text:
         with st.spinner("Processing... (प्रक्रिया जारी है...)"):
             st.markdown(get_ai_response(sys_prompt, text, model))
