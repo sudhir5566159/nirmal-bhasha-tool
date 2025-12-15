@@ -1,0 +1,59 @@
+{
+  "correction_rules": [
+    {
+      "word": "Gaadi (गाड़ी)",
+      "origin": "Deshaj/Hindi (Indigenous)",
+      "replacement": "Vahan (वाहन) [Tatsam]"
+    },
+    {
+      "word": "Kitaab (किताब)",
+      "origin": "Arabic",
+      "replacement": "Pustak (पुस्तक)"
+    },
+    {
+      "word": "Dost (दोस्त)",
+      "origin": "Persian",
+      "replacement": "Mitra (मित्र)"
+    },
+    {
+      "word": "Zaroori (ज़रूरी)",
+      "origin": "Arabic",
+      "replacement": "Anivarya (अनिवार्य) / Awashyak (आवश्यक)"
+    },
+    {
+      "word": "Khoon (खून)",
+      "origin": "Persian",
+      "replacement": "Rakt (रक्त)"
+    },
+    {
+      "word": "Hawa (हवा)",
+      "origin": "Arabic",
+      "replacement": "Vayu (वायु) / Pavan (पवन)"
+    },
+    {
+      "word": "Duniya (दुनिया)",
+      "origin": "Arabic",
+      "replacement": "Samsara (संसार) / Jagat (जगत)"
+    },
+    {
+      "word": "Aurat (aurat)",
+      "origin": "Arabic",
+      "replacement": "Stree (स्त्री) / Mahila (महिला)"
+    },
+    {
+      "word": "Aadmi (आदमी)",
+      "origin": "Arabic",
+      "replacement": "Manushya (मनुष्य) / Vyakti (व्यक्ति)"
+    },
+    {
+      "word": "Akhbar (अख़बार)",
+      "origin": "Persian",
+      "replacement": "Samachar Patra (समाचार पत्र)"
+    },
+    {
+      "word": "Azadi (आज़ादी)",
+      "origin": "Persian",
+      "replacement": "Swatantrata (स्वतंत्रता)"
+    }
+  ]
+}
