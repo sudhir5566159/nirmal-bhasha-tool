@@ -41,15 +41,14 @@ def show_header():
 # --- AI RESPONSE FUNCTION ---
 def get_ai_response(system_prompt, user_text, engine):
     try:
-        # OPTION 1: GOOGLE GEMINI (STABLE VERSION)
-        # Switched from 'exp' (experimental) to '1.5-flash' (stable & generous free tier)
+        # OPTION 1: GOOGLE GEMINI (The Best for Hindi)
         if "Gemini" in engine:
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            # FIX: Using 'gemini-1.5-flash-latest' which is the safest alias
+            model = genai.GenerativeModel("gemini-1.5-flash-latest")
             response = model.generate_content(system_prompt + "\n\nUser Input: " + user_text)
             return response.text
 
-        # OPTION 2: META LLAMA 3 (VIA GROQ)
-        # Switched to the newest supported model ID
+        # OPTION 2: META LLAMA 3 (via Groq)
         elif "Llama" in engine or "Groq" in engine:
             if not groq_client:
                 return "Error: Groq API Key not found in Secrets."
@@ -59,15 +58,16 @@ def get_ai_response(system_prompt, user_text, engine):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_text}
                 ],
-                # Updated Model ID:
+                # Using the newest versatile model
                 model="llama-3.3-70b-versatile", 
+                temperature=0.3, # Lower temperature = stricter, less hallucination
             )
             return completion.choices[0].message.content
 
-        # OPTION 3: CLAUDE 3.5 SONNET (Paid)
+        # OPTION 3: CLAUDE (Paid)
         elif "Claude" in engine:
             if not anthropic_client:
-                return "Error: Anthropic API Key not found. Please add it to Secrets."
+                return "Error: Anthropic API Key not found."
             
             message = anthropic_client.messages.create(
                 model="claude-3-5-sonnet-20240620",
@@ -83,6 +83,9 @@ def get_ai_response(system_prompt, user_text, engine):
             return "Error: Unknown Engine Selected"
 
     except Exception as e:
+        # If Gemini fails, give a clear hint
+        if "404" in str(e) and "Gemini" in engine:
+            return f"Error: Model ID not found. Try updating requirements.txt. Details: {str(e)}"
         return f"Error: {str(e)}"
 
 # --- LOAD CORRECTIONS ---
