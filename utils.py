@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai
+import requests  # We use this to bypass the broken Google library
 from groq import Groq
 import anthropic
 import json
@@ -9,18 +9,15 @@ from datetime import datetime
 import time
 
 # --- AUTHENTICATION ---
-try:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-except:
-    pass 
+# We retrieve keys, but we don't configure the broken Google library anymore.
+GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", "")
+GROQ_KEY = st.secrets.get("GROQ_API_KEY", "")
+ANTHROPIC_KEY = st.secrets.get("ANTHROPIC_API_KEY", "")
 
+# Initialize other clients if keys exist
+groq_client = Groq(api_key=GROQ_KEY) if GROQ_KEY else None
 try:
-    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-except:
-    groq_client = None
-
-try:
-    anthropic_client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
+    anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_KEY) if ANTHROPIC_KEY else None
 except:
     anthropic_client = None
 
@@ -54,11 +51,44 @@ def save_feedback(tool_name, user_input, ai_output, rating, comment=""):
     except:
         return False
 
-# --- ROBUST AI RESPONSE (Triple-Fallback Logic) ---
+# --- DIRECT API CALL FUNCTION (Bypasses Broken Library) ---
+def call_gemini_direct(model_name, prompt):
+    """
+    Sends a direct web request to Google, ignoring the installed Python library.
+    """
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_KEY}"
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }],
+        "safetySettings": [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+        ]
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        
+        # Check if the request was successful
+        if response.status_code == 200:
+            return response.json()['candidates'][0]['content']['parts'][0]['text']
+        else:
+            # If Google returns an error, raise it so the fallback logic catches it
+            raise Exception(f"Google API Error {response.status_code}: {response.text}")
+            
+    except Exception as e:
+        raise Exception(f"Connection Failed: {str(e)}")
+
+
+# --- MAIN AI RESPONSE LOGIC ---
 def get_ai_response(system_prompt, user_text, engine):
     
-    # CUSTOM BUSY MESSAGE (With Hidden Debug Info)
-    def make_busy_message(e1, e2, e3):
+    # Custom Busy Message
+    def make_busy_message(e1, e2):
         return f"""
         ### ⚠️ High Traffic Alert (अत्यधिक ट्रैफिक चेतावनी)
         Due to overwhelming demand, our AI servers are running at full capacity.
@@ -66,11 +96,10 @@ def get_ai_response(system_prompt, user_text, engine):
         
         <br><hr>
         <details>
-        <summary>👨‍💻 Technical Debug Info (Click if you are the Developer)</summary>
+        <summary>👨‍💻 Technical Debug Info</summary>
         <div style='color:red; font-size:12px; font-family:monospace;'>
-        <b>Attempt 1 (Flash 1.5):</b> {str(e1)}<br><br>
-        <b>Attempt 2 (Pro 1.5):</b> {str(e2)}<br><br>
-        <b>Attempt 3 (Pro 1.0):</b> {str(e3)}
+        <b>Direct Call 1 (Flash 1.5):</b> {str(e1)}<br><br>
+        <b>Direct Call 2 (Pro 1.5):</b> {str(e2)}
         </div>
         </details>
         """
@@ -81,41 +110,27 @@ def get_ai_response(system_prompt, user_text, engine):
         if not is_ok:
             return f"⚠️ **Limit Exceeded:** Your text has **{count} words**. Limit is **{MAX_WORD_LIMIT}**."
 
-        # OPTION 1: GOOGLE GEMINI
+        # OPTION 1: GOOGLE GEMINI (Using Direct Connection)
         if "Gemini" in engine:
+            if not GEMINI_KEY: return "Error: Gemini API Key missing in secrets."
             
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
             
-            # ATTEMPT 1: Gemini 1.5 Flash (The Best)
+            # ATTEMPT 1: Gemini 1.5 Flash (Direct Web Call)
             try:
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                # We relax safety settings for the main attempt
-                safety_settings = [
-                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-                ]
-                response = model.generate_content(full_prompt, safety_settings=safety_settings)
-                return response.text
+                return call_gemini_direct("gemini-1.5-flash", full_prompt)
             except Exception as e1:
                 
-                # ATTEMPT 2: Gemini 1.5 Pro (The Backup)
+                # ATTEMPT 2: Gemini 1.5 Pro (Direct Web Call)
                 try:
-                    model = genai.GenerativeModel("gemini-1.5-pro")
-                    response = model.generate_content(full_prompt) # No safety settings to reduce errors
-                    return response.text
+                    return call_gemini_direct("gemini-1.5-pro", full_prompt)
                 except Exception as e2:
                     
-                    # ATTEMPT 3: Gemini Pro (The Old Reliable)
+                    # ATTEMPT 3: Gemini Pro 1.0 (Legacy)
                     try:
-                        model = genai.GenerativeModel("gemini-pro")
-                        response = model.generate_content(full_prompt)
-                        return response.text
+                         return call_gemini_direct("gemini-pro", full_prompt)
                     except Exception as e3:
-                        
-                        # ALL 3 FAILED: Show message + Debug info
-                        return make_busy_message(e1, e2, e3)
+                         return make_busy_message(e1, e2)
 
         # OPTION 2: META LLAMA 3
         elif "Llama" in engine or "Groq" in engine:
@@ -127,7 +142,7 @@ def get_ai_response(system_prompt, user_text, engine):
                 )
                 return completion.choices[0].message.content
             except:
-                 return "⚠️ Groq Service Busy. Please try Gemini."
+                 return "⚠️ Groq Service Busy."
 
         # OPTION 3: CLAUDE
         elif "Claude" in engine:
@@ -139,7 +154,7 @@ def get_ai_response(system_prompt, user_text, engine):
                 )
                 return message.content[0].text
             except:
-                return "⚠️ Claude Service Busy. Please try Gemini."
+                return "⚠️ Claude Service Busy."
         else:
             return "Error: Unknown Engine Selected"
             
