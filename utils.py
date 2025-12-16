@@ -30,37 +30,24 @@ except:
 MAX_WORD_LIMIT = 1000 
 POE_LINK = "https://poe.com/Nirmal-Bhasha"
 
-# --- HELPER: FALLBACK MESSAGE (The "Poe" Redirection) ---
+# --- HELPER: FALLBACK MESSAGE (Markdown Version) ---
 def get_fallback_message(error_type, details=""):
     """
-    Returns a formatted message redirecting users to Poe.com
-    when the main app hits a limit or error.
+    Returns a High-Visibility Markdown message.
     """
     return f"""
-    ### ⚠️ System {error_type}
-    
-    **Don't worry! You can still use Nirmal-Bhasha instantly.**
-    
-    Our main server is currently busy or experiencing high traffic. 
-    We have a dedicated high-speed backup hosted on **Poe.com** that never gets stuck.
-    
-    <a href="{POE_LINK}" target="_blank" style="text-decoration:none;">
-        <div style="
-            background-color: #4C26E6; 
-            color: white; 
-            padding: 15px; 
-            border-radius: 10px; 
-            text-align: center; 
-            font-weight: bold; 
-            font-size: 18px; 
-            margin: 10px 0;">
-            🚀 Click here to Continue on Poe.com
-        </div>
-    </a>
-    
-    <div style="font-size: 12px; color: gray; margin-top: 10px;">
-    Error Details: {details}
-    </div>
+# ⚠️ System Busy / सर्वर व्यस्त है
+
+**Don't worry! You can still use the app instantly.**
+*(चिंता न करें! आप अभी भी ऐप का उपयोग कर सकते हैं।)*
+
+Our free server is currently overloaded. We have a **Premium High-Speed Backup** available for free on Poe.com.
+
+## 👉 [🚀 CLICK HERE to Continue on Poe.com]({POE_LINK})
+*(Clicking above will open Nirmal-Bhasha on Poe, which never gets stuck)*
+
+---
+<small>Technical Error: {error_type} | {details}</small>
     """
 
 # --- HELPER FUNCTIONS ---
@@ -116,11 +103,11 @@ def get_ai_response(system_prompt, user_text, engine):
         # 1. CHECK WORD LIMIT
         is_ok, count = check_word_count(user_text)
         if not is_ok: 
-            return get_fallback_message("Limit Exceeded", f"Text is {count} words. Limit is {MAX_WORD_LIMIT}.")
+            return get_fallback_message("Limit Exceeded", f"Text is {count} words.")
 
         # OPTION 1: GEMINI (Google)
         if "Gemini" in engine:
-            if not GEMINI_KEY: return get_fallback_message("Configuration Error", "API Key Missing.")
+            if not GEMINI_KEY: return get_fallback_message("Setup Error", "API Key Missing.")
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
             
             # Try 2.5 Flash -> 2.0 Flash -> Poe Fallback
@@ -128,11 +115,11 @@ def get_ai_response(system_prompt, user_text, engine):
             except Exception as e1:
                 try: return call_gemini_direct("gemini-2.0-flash", full_prompt)
                 except Exception as e2:
-                    return get_fallback_message("Busy / Connection Failed", f"{e1} | {e2}")
+                    return get_fallback_message("Connection Failed", "Google Servers Busy")
 
         # OPTION 2: LLAMA (via Groq)
         elif "Llama" in engine or "Groq" in engine:
-            if not groq_client: return get_fallback_message("Configuration Error", "Groq API Key missing.")
+            if not groq_client: return get_fallback_message("Setup Error", "Groq Key Missing")
             
             try:
                 completion = groq_client.chat.completions.create(
@@ -142,11 +129,11 @@ def get_ai_response(system_prompt, user_text, engine):
                 )
                 return completion.choices[0].message.content
             except Exception as e:
-                 return get_fallback_message("Server Busy (Groq)", str(e))
+                 return get_fallback_message("Groq Busy", str(e))
 
         # OPTION 3: CLAUDE
         elif "Claude" in engine:
-            if not anthropic_client: return get_fallback_message("Configuration Error", "Anthropic API Key missing.")
+            if not anthropic_client: return get_fallback_message("Setup Error", "Anthropic Key Missing")
             try:
                 message = anthropic_client.messages.create(
                     model="claude-3-5-sonnet-20240620", max_tokens=1024, system=system_prompt,
@@ -154,10 +141,9 @@ def get_ai_response(system_prompt, user_text, engine):
                 )
                 return message.content[0].text
             except Exception as e:
-                return get_fallback_message("Server Busy (Claude)", str(e))
+                return get_fallback_message("Claude Busy", str(e))
         else:
-            return get_fallback_message("Selection Error", "Unknown Engine Selected")
+            return get_fallback_message("Error", "Unknown Engine")
             
     except Exception as e:
-        # Catch-all for any other crashes
-        return get_fallback_message("Crash Detected", str(e))
+        return get_fallback_message("System Crash", str(e))
