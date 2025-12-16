@@ -7,6 +7,7 @@ import csv
 import os
 import random
 from datetime import datetime
+import time
 
 # --- AUTHENTICATION ---
 try:
@@ -25,19 +26,16 @@ except:
     anthropic_client = None
 
 # --- CONSTANTS ---
-MAX_WORD_LIMIT = 1000  # Hard limit to prevent abuse
+MAX_WORD_LIMIT = 1000 
 
 # --- HELPER FUNCTIONS ---
-
 def check_word_count(text):
-    """Checks if text is within limits."""
     word_count = len(text.split())
     if word_count > MAX_WORD_LIMIT:
         return False, word_count
     return True, word_count
 
 def get_daily_word():
-    """Returns a 'Word of the Day' to hook users daily."""
     words = [
         {"word": "Jijivisha (जिजीविषा)", "meaning": "Strong desire to live (जीने की प्रबल इच्छा)."},
         {"word": "Kritagya (कृतज्ञ)", "meaning": "One who is grateful (उपकार मानने वाला)."},
@@ -49,7 +47,6 @@ def get_daily_word():
     return words[day_of_year % len(words)]
 
 def save_subscriber(email):
-    """Saves email to a CSV file (Lead Gen)."""
     file_name = "subscribers.csv"
     try:
         with open(file_name, mode="a", newline="", encoding="utf-8") as file:
@@ -61,14 +58,11 @@ def save_subscriber(email):
     except:
         return False
 
-# --- HEADER FUNCTION ---
 def show_header():
     col1, col2 = st.columns([1, 5])
     with col1:
-        try:
-            st.image("nirmal_logo.png", width=60)
-        except:
-            st.write("🪷")
+        try: st.image("nirmal_logo.png", width=60)
+        except: st.markdown("<div style='font-size: 40px;'>🌸</div>", unsafe_allow_html=True)
     with col2:
         st.markdown("""
             <h3 style='margin-bottom:0; color: #ff4b4b;'>ShabdaSankalan AI</h3>
@@ -76,29 +70,65 @@ def show_header():
             """, unsafe_allow_html=True)
     st.markdown("---")
 
-# --- AI RESPONSE FUNCTION ---
+def load_correction_rules():
+    try:
+        with open("corrections.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return str(data["correction_rules"])
+    except:
+        return "No correction rules found."
+
+def save_feedback(tool_name, user_input, ai_output, rating, comment=""):
+    file_name = "feedback_log.csv"
+    try:
+        with open(file_name, mode="a", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            if not os.path.isfile(file_name):
+                writer.writerow(["Date", "Tool Name", "Rating", "User Input", "AI Output", "Comments"])
+            writer.writerow([datetime.now(), tool_name, rating, user_input, ai_output, comment])
+            return True
+    except:
+        return False
+
+# --- SMART AI RESPONSE (The "Bulletproof" Logic) ---
 def get_ai_response(system_prompt, user_text, engine):
     try:
-        # Check Limits First
+        # Check Limits
         is_ok, count = check_word_count(user_text)
         if not is_ok:
-            return f"⚠️ **Limit Exceeded:** Your text has **{count} words**. The free limit is **{MAX_WORD_LIMIT} words**. Please shorten it."
+            return f"⚠️ **Limit Exceeded:** Your text has **{count} words**. Limit is **{MAX_WORD_LIMIT}**."
 
-        # OPTION 1: GOOGLE GEMINI 2.5 (Best)
+        # OPTION 1: GOOGLE GEMINI (Smart Fallback Strategy)
         if "Gemini" in engine:
+            
+            # Define the Safety Settings (Unblock everything to prevent false errors)
+            safety_settings = [
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            ]
+
+            # ATTEMPT 1: Try the Latest & Greatest (Gemini 2.0 Flash Exp)
             try:
-                # Primary: Try 2.5 Flash
-                model = genai.GenerativeModel("gemini-2.5-flash")
-                response = model.generate_content(system_prompt + "\n\nUser Input: " + user_text)
+                model = genai.GenerativeModel("gemini-2.0-flash-exp")
+                response = model.generate_content(
+                    system_prompt + "\n\nUser Input: " + user_text,
+                    safety_settings=safety_settings
+                )
                 return response.text
             except:
-                # Fallback: Try Latest Alias
+                # ATTEMPT 2: Fallback to the Workhorse (Gemini 1.5 Flash)
                 try:
-                    model = genai.GenerativeModel("gemini-flash-latest")
-                    response = model.generate_content(system_prompt + "\n\nUser Input: " + user_text)
+                    # print("Falling back to 1.5 Flash...") # Debugging
+                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    response = model.generate_content(
+                        system_prompt + "\n\nUser Input: " + user_text,
+                        safety_settings=safety_settings
+                    )
                     return response.text
                 except Exception as e:
-                    return f"Gemini Error: {str(e)}"
+                    return f"Server Busy (Please try again in 1 min): {str(e)}"
 
         # OPTION 2: META LLAMA 3
         elif "Llama" in engine or "Groq" in engine:
@@ -121,25 +151,3 @@ def get_ai_response(system_prompt, user_text, engine):
             return "Error: Unknown Engine Selected"
     except Exception as e:
         return f"System Error: {str(e)}"
-
-# --- CORRECTION LOADER ---
-def load_correction_rules():
-    try:
-        with open("corrections.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return str(data["correction_rules"])
-    except:
-        return "No correction rules found."
-
-# --- FEEDBACK SAVER ---
-def save_feedback(tool_name, user_input, ai_output, rating, comment=""):
-    file_name = "feedback_log.csv"
-    try:
-        with open(file_name, mode="a", newline="", encoding="utf-8") as file:
-            writer = csv.writer(file)
-            if not os.path.isfile(file_name):
-                writer.writerow(["Date", "Tool Name", "Rating", "User Input", "AI Output", "Comments"])
-            writer.writerow([datetime.now(), tool_name, rating, user_input, ai_output, comment])
-            return True
-    except:
-        return False
