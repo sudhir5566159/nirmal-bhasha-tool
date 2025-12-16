@@ -44,7 +44,7 @@ st.markdown("---")
 # --- INPUT SECTION ---
 col_input, col_settings = st.columns([3, 1])
 with col_settings:
-    model = st.selectbox("Engine / इंजन:", ["Gemini 2.5 Flash (Google)", "Meta Llama 3 (via Groq)", "Claude 3.5 Sonnet (Anthropic)"], label_visibility="collapsed")
+    model = st.selectbox("Engine / इंजन:", ["Gemini 1.5 Flash (Google)", "Meta Llama 3 (via Groq)", "Claude 3.5 Sonnet (Anthropic)"], label_visibility="collapsed")
 with col_input:
     st.caption("Select Engine above | Enter text below (इंजन चुनें | पाठ दर्ज करें):")
 
