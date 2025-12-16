@@ -30,10 +30,10 @@ except:
 MAX_WORD_LIMIT = 1000 
 POE_LINK = "https://poe.com/Nirmal-Bhasha"
 
-# --- HELPER: FALLBACK MESSAGE (Markdown Version) ---
+# --- HELPER: FALLBACK MESSAGE (Custom Text + Logo) ---
 def get_fallback_message(error_type, details=""):
     """
-    Returns a High-Visibility Markdown message.
+    Returns a High-Visibility Markdown message with the specific Poe link text.
     """
     return f"""
 # ⚠️ System Busy / सर्वर व्यस्त है
@@ -43,8 +43,8 @@ def get_fallback_message(error_type, details=""):
 
 Our free server is currently overloaded. We have a **Premium High-Speed Backup** available for free on Poe.com.
 
-## 👉 [🚀 CLICK HERE to Continue on Poe.com]({POE_LINK})
-*(Clicking above will open Nirmal-Bhasha on Poe, which never gets stuck)*
+## 👉 [🚀 CLICK HERE to Continue the same Nirmal Bhasha 🌸 on Poe.com without any disruption]({POE_LINK})
+*(Clicking above will open the backup server, which never gets stuck)*
 
 ---
 <small>Technical Error: {error_type} | {details}</small>
@@ -122,28 +122,4 @@ def get_ai_response(system_prompt, user_text, engine):
             if not groq_client: return get_fallback_message("Setup Error", "Groq Key Missing")
             
             try:
-                completion = groq_client.chat.completions.create(
-                    messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_text}],
-                    model="llama-3.3-70b-versatile",
-                    temperature=0.3
-                )
-                return completion.choices[0].message.content
-            except Exception as e:
-                 return get_fallback_message("Groq Busy", str(e))
-
-        # OPTION 3: CLAUDE
-        elif "Claude" in engine:
-            if not anthropic_client: return get_fallback_message("Setup Error", "Anthropic Key Missing")
-            try:
-                message = anthropic_client.messages.create(
-                    model="claude-3-5-sonnet-20240620", max_tokens=1024, system=system_prompt,
-                    messages=[{"role": "user", "content": user_text}]
-                )
-                return message.content[0].text
-            except Exception as e:
-                return get_fallback_message("Claude Busy", str(e))
-        else:
-            return get_fallback_message("Error", "Unknown Engine")
-            
-    except Exception as e:
-        return get_fallback_message("System Crash", str(e))
+                completion =
