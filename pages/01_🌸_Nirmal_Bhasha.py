@@ -44,7 +44,6 @@ st.markdown("---")
 # --- INPUT SECTION ---
 col_input, col_settings = st.columns([3, 1])
 with col_settings:
-    # CLEANED DROPDOWN: Removed Qwen
     model = st.selectbox(
         "Engine / इंजन:", 
         ["Gemini 2.5 Flash (Google)", "Llama 3.3 (via Groq)", "Claude 3.5 Sonnet (Anthropic)"], 
@@ -56,7 +55,7 @@ with col_input:
 
 text = st.text_area("Input Text", height=150, placeholder="Start typing here... \n(Example: Meri gaadi kharab hai)", label_visibility="collapsed")
 
-# --- SESSION STATE MANAGEMENT ---
+# --- SESSION STATE ---
 if "nirmal_result" not in st.session_state:
     st.session_state.nirmal_result = None
 if "analyzed_text" not in st.session_state:
@@ -95,8 +94,8 @@ if st.button("Analyze Purity / शुद्धता जांचें", type="
 # --- RESULT DISPLAY ---
 if st.session_state.nirmal_result:
     
-    # 1. THE MAIN RESULT
-    st.markdown(st.session_state.nirmal_result)
+    # 1. THE MAIN RESULT (Enabled HTML for safe rendering)
+    st.markdown(st.session_state.nirmal_result, unsafe_allow_html=True)
     st.markdown("---")
 
     # 2. FEEDBACK & DOWNLOAD
