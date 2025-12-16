@@ -1,5 +1,5 @@
 import streamlit as st
-import requests  # Bypass broken libraries
+import requests  # Direct API calls
 from groq import Groq
 import anthropic
 import json
@@ -8,8 +8,8 @@ import os
 from datetime import datetime
 import time
 
-# --- AUTHENTICATION (Smart Key Finder) ---
-# This block looks for your key under ANY common name
+# --- AUTHENTICATION ---
+# Smart Key Finder
 GEMINI_KEY = None
 possible_names = ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_KEY", "GOOGLE_KEY"]
 
@@ -18,11 +18,10 @@ for name in possible_names:
         GEMINI_KEY = st.secrets[name]
         break
 
-# Get other keys
 GROQ_KEY = st.secrets.get("GROQ_API_KEY", "")
 ANTHROPIC_KEY = st.secrets.get("ANTHROPIC_API_KEY", "")
 
-# Initialize clients
+# Initialize Clients
 groq_client = Groq(api_key=GROQ_KEY) if GROQ_KEY else None
 try:
     anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_KEY) if ANTHROPIC_KEY else None
@@ -61,9 +60,7 @@ def save_feedback(tool_name, user_input, ai_output, rating, comment=""):
 
 # --- DIRECT API CALL FUNCTION ---
 def call_gemini_direct(model_name, prompt):
-    """
-    Sends a direct web request to Google, bypassing broken Python libraries.
-    """
+    # Standard URL for Google AI Studio keys
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = {
@@ -78,22 +75,17 @@ def call_gemini_direct(model_name, prompt):
         ]
     }
     
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        
-        if response.status_code == 200:
-            return response.json()['candidates'][0]['content']['parts'][0]['text']
-        else:
-            raise Exception(f"Google Error {response.status_code}: {response.text}")
-            
-    except Exception as e:
-        raise Exception(f"Connection Failed: {str(e)}")
-
+    response = requests.post(url, headers=headers, json=payload)
+    
+    if response.status_code == 200:
+        return response.json()['candidates'][0]['content']['parts'][0]['text']
+    else:
+        # Return the specific error from Google
+        raise Exception(f"Google Error {response.status_code}: {response.text}")
 
 # --- MAIN AI RESPONSE LOGIC ---
 def get_ai_response(system_prompt, user_text, engine):
     
-    # Custom Busy Message
     def make_busy_message(e1, e2):
         return f"""
         ### ⚠️ High Traffic Alert (अत्यधिक ट्रैफिक चेतावनी)
@@ -102,16 +94,15 @@ def get_ai_response(system_prompt, user_text, engine):
         
         <br><hr>
         <details>
-        <summary>👨‍💻 Technical Debug Info</summary>
+        <summary>👨‍💻 Debug Info</summary>
         <div style='color:red; font-size:12px; font-family:monospace;'>
-        <b>Direct Call 1 (Flash):</b> {str(e1)}<br><br>
-        <b>Direct Call 2 (Pro):</b> {str(e2)}
+        <b>Attempt 1 (Gemini Pro):</b> {str(e1)}<br><br>
+        <b>Attempt 2 (Gemini 1.0 Pro):</b> {str(e2)}
         </div>
         </details>
         """
 
     try:
-        # Check Limits
         is_ok, count = check_word_count(user_text)
         if not is_ok:
             return f"⚠️ **Limit Exceeded:** Your text has **{count} words**. Limit is **{MAX_WORD_LIMIT}**."
@@ -119,25 +110,22 @@ def get_ai_response(system_prompt, user_text, engine):
         # OPTION 1: GOOGLE GEMINI
         if "Gemini" in engine:
             if not GEMINI_KEY: 
-                return "❌ **Setup Error:** No API Key found. Please add `GEMINI_API_KEY` or `GOOGLE_API_KEY` to your Secrets."
+                return "❌ **Setup Error:** No API Key found. Please add `GEMINI_API_KEY` to Secrets."
             
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
             
-            # ATTEMPT 1: Gemini 1.5 Flash
+            # ATTEMPT 1: Try "gemini-pro" (The original, most compatible model)
             try:
-                return call_gemini_direct("gemini-1.5-flash", full_prompt)
+                return call_gemini_direct("gemini-pro", full_prompt)
             except Exception as e1:
-                # ATTEMPT 2: Gemini 1.5 Pro
+                
+                # ATTEMPT 2: Try "gemini-1.0-pro" (The alternative name)
                 try:
-                    return call_gemini_direct("gemini-1.5-pro", full_prompt)
+                    return call_gemini_direct("gemini-1.0-pro", full_prompt)
                 except Exception as e2:
-                     # ATTEMPT 3: Gemini Pro 1.0
-                    try:
-                         return call_gemini_direct("gemini-pro", full_prompt)
-                    except Exception as e3:
-                         return make_busy_message(e1, e2)
+                    return make_busy_message(e1, e2)
 
-        # OPTION 2: META LLAMA 3
+        # OPTION 2: LLAMA (Groq)
         elif "Llama" in engine or "Groq" in engine:
             if not groq_client: return "Error: Groq API Key missing."
             try:
