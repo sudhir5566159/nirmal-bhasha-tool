@@ -28,6 +28,40 @@ except:
 
 # --- CONSTANTS ---
 MAX_WORD_LIMIT = 1000 
+POE_LINK = "https://poe.com/Nirmal-Bhasha"
+
+# --- HELPER: FALLBACK MESSAGE (The "Poe" Redirection) ---
+def get_fallback_message(error_type, details=""):
+    """
+    Returns a formatted message redirecting users to Poe.com
+    when the main app hits a limit or error.
+    """
+    return f"""
+    ### ⚠️ System {error_type}
+    
+    **Don't worry! You can still use Nirmal-Bhasha instantly.**
+    
+    Our main server is currently busy or experiencing high traffic. 
+    We have a dedicated high-speed backup hosted on **Poe.com** that never gets stuck.
+    
+    <a href="{POE_LINK}" target="_blank" style="text-decoration:none;">
+        <div style="
+            background-color: #4C26E6; 
+            color: white; 
+            padding: 15px; 
+            border-radius: 10px; 
+            text-align: center; 
+            font-weight: bold; 
+            font-size: 18px; 
+            margin: 10px 0;">
+            🚀 Click here to Continue on Poe.com
+        </div>
+    </a>
+    
+    <div style="font-size: 12px; color: gray; margin-top: 10px;">
+    Error Details: {details}
+    </div>
+    """
 
 # --- HELPER FUNCTIONS ---
 def check_word_count(text):
@@ -79,24 +113,26 @@ def call_gemini_direct(model_name, prompt):
 def get_ai_response(system_prompt, user_text, engine):
     
     try:
+        # 1. CHECK WORD LIMIT
         is_ok, count = check_word_count(user_text)
-        if not is_ok: return f"Limit Exceeded: {count} words."
+        if not is_ok: 
+            return get_fallback_message("Limit Exceeded", f"Text is {count} words. Limit is {MAX_WORD_LIMIT}.")
 
-        # OPTION 1: GEMINI (Google) - The Gold Standard
+        # OPTION 1: GEMINI (Google)
         if "Gemini" in engine:
-            if not GEMINI_KEY: return "❌ Setup Error: API Key Missing."
+            if not GEMINI_KEY: return get_fallback_message("Configuration Error", "API Key Missing.")
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
             
-            # Smart Fallback: Try 2.5 (Newest) -> 2.0 (Stable)
+            # Try 2.5 Flash -> 2.0 Flash -> Poe Fallback
             try: return call_gemini_direct("gemini-2.5-flash", full_prompt)
             except Exception as e1:
                 try: return call_gemini_direct("gemini-2.0-flash", full_prompt)
                 except Exception as e2:
-                    return f"❌ Connection Error. Both Flash models failed.\nDebug: {e1} | {e2}"
+                    return get_fallback_message("Busy / Connection Failed", f"{e1} | {e2}")
 
-        # OPTION 2: LLAMA (via Groq) - The Backup
+        # OPTION 2: LLAMA (via Groq)
         elif "Llama" in engine or "Groq" in engine:
-            if not groq_client: return "Error: Groq API Key missing."
+            if not groq_client: return get_fallback_message("Configuration Error", "Groq API Key missing.")
             
             try:
                 completion = groq_client.chat.completions.create(
@@ -106,18 +142,22 @@ def get_ai_response(system_prompt, user_text, engine):
                 )
                 return completion.choices[0].message.content
             except Exception as e:
-                 return f"⚠️ Groq Error: {str(e)}"
+                 return get_fallback_message("Server Busy (Groq)", str(e))
 
         # OPTION 3: CLAUDE
         elif "Claude" in engine:
-            if not anthropic_client: return "Error: Anthropic API Key missing."
-            message = anthropic_client.messages.create(
-                model="claude-3-5-sonnet-20240620", max_tokens=1024, system=system_prompt,
-                messages=[{"role": "user", "content": user_text}]
-            )
-            return message.content[0].text
+            if not anthropic_client: return get_fallback_message("Configuration Error", "Anthropic API Key missing.")
+            try:
+                message = anthropic_client.messages.create(
+                    model="claude-3-5-sonnet-20240620", max_tokens=1024, system=system_prompt,
+                    messages=[{"role": "user", "content": user_text}]
+                )
+                return message.content[0].text
+            except Exception as e:
+                return get_fallback_message("Server Busy (Claude)", str(e))
         else:
-            return "Error: Unknown Engine Selected"
+            return get_fallback_message("Selection Error", "Unknown Engine Selected")
             
     except Exception as e:
-        return f"System Error: {str(e)}"
+        # Catch-all for any other crashes
+        return get_fallback_message("Crash Detected", str(e))
