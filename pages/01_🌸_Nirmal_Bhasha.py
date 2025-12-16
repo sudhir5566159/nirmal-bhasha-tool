@@ -44,10 +44,10 @@ st.markdown("---")
 # --- INPUT SECTION ---
 col_input, col_settings = st.columns([3, 1])
 with col_settings:
-    # UPDATED DROPDOWN: Removed DeepSeek, Added Qwen 3
+    # CLEANED DROPDOWN: Removed Qwen
     model = st.selectbox(
         "Engine / इंजन:", 
-        ["Gemini 2.5 Flash (Google)", "Qwen 3 (via Groq)", "Claude 3.5 Sonnet (Anthropic)"], 
+        ["Gemini 2.5 Flash (Google)", "Llama 3.3 (via Groq)", "Claude 3.5 Sonnet (Anthropic)"], 
         label_visibility="collapsed"
     )
 
