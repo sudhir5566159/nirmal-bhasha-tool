@@ -17,11 +17,9 @@ with col_endorser:
 
 col_logo, col_text = st.columns([1.5, 4.5])
 with col_logo:
-    # 1. BRAND LOGO CHECK (As requested)
     try:
         st.image("nirmal_logo.png", width=120)
     except:
-        # Fallback if image is missing
         st.markdown("<div style='font-size: 80px; text-align: center;'>🌸</div>", unsafe_allow_html=True)
 
 with col_text:
@@ -32,7 +30,7 @@ with col_text:
         </div>
         """, unsafe_allow_html=True)
 
-st.markdown("---") 
+st.markdown("---")
 
 # --- INPUT SECTION ---
 col_input, col_settings = st.columns([3, 1])
@@ -46,13 +44,14 @@ text = st.text_area("Input Text", height=150, placeholder="Start typing here... 
 # Session State
 if "nirmal_result" not in st.session_state:
     st.session_state.nirmal_result = None
+if "feedback_submitted" not in st.session_state:
+    st.session_state.feedback_submitted = False
 
 # --- ACTION BUTTON ---
 if st.button("Analyze Purity / शुद्धता जांचें", type="primary", use_container_width=True):
+    st.session_state.feedback_submitted = False
     rules = load_correction_rules()
     
-    # 2. STUNNING OUTPUT PROMPT
-    # We explicitly ask AI for a "Scorecard" first to make the day for the user.
     sys_prompt = f"""
     You are 'Nirmal-Bhasha'. Analyze for Foreign words (Urdu, English, Persian).
     CRITICAL CORRECTION LIST: {rules}
@@ -74,18 +73,17 @@ if st.button("Analyze Purity / शुद्धता जांचें", type="
 # --- RESULT DISPLAY ---
 if st.session_state.nirmal_result:
     
-    # 1. THE REPORT (Now starts with stunning table)
     st.markdown(st.session_state.nirmal_result)
     
     st.markdown("---")
     
-    # 2. THE REALITY CHECK (Bilingual & Formatted)
+    # 2. IMPACTFUL REALITY CHECK (Bilingual)
     st.warning("""
     #### ⚠️ क्या 2050 तक हिंदी बदल जाएगी? (Will Hindi change forever?)
     
     **सच्चाई (The Reality):**
-    विशेषज्ञ चेतावनी देते हैं कि "हिंग्लिश" हमारी शब्दावली को तेजी से बदल रही है। शहरी बोलचाल का 40% हिस्सा अब विदेशी है। हमने इस रुझान को पलटने के लिए यह AI बनाया है।
-    *(Experts warn that "Hinglish" is rapidly replacing our vocabulary. 40% of urban speech is now foreign. We built this AI to reverse that trend.)*
+    विशेषज्ञों का मानना है कि 'हिंदी' अब उतनी हिंदी नहीं रही। यह तेजी से बदल रही है और हमारी बातचीत का कम से कम 40% हिस्सा अब विदेशी है, जिसमें अरबी, फारसी और अंग्रेजी का बड़ा प्रभाव है। ये सभी भाषाएं महान हैं, लेकिन आपकी संस्कृति का हजारों वर्षों से हिस्सा रहे, बचपन में सुने गए कई हिंदी शब्द अब लगभग विलुप्त हो चुके हैं। हिंदी शब्दावली धीरे-धीरे कोमा में जा रही है। हमने इस रुझान को पलटने के लिए यह AI बनाया है।
+    *(Experts warn that 'Hindi' is rapidly evolving, with at least 40% of our conversation now consisting of foreign influences like Arabic, Persian, and English. While these languages are great, many traditional Hindi terms—part of our culture for millennia and known from childhood—are becoming extinct. Hindi vocabulary is gradually slipping into a coma. We built this AI to reverse that trend.)*
     
     **पारदर्शिता (Transparency):**
     * **AI Cost for this analysis:** ₹2.00 (Paid by us)
@@ -97,7 +95,6 @@ if st.session_state.nirmal_result:
     col_cta1, col_cta2 = st.columns(2)
     
     with col_cta1:
-        # 3. SHARE TEXT (Fixed Visibility)
         st.markdown("### 📢 Share the Pride")
         st.caption("Copy this text for WhatsApp:")
         
@@ -112,25 +109,32 @@ Verdict: Excellent Standard
 Let's stop normalizing Hinglish.
 Verify your content here: ShabdaSankalan.com"""
         
-        # Using text_area makes it wrap automatically so user sees everything "in a go"
         st.text_area("Copy text below:", value=share_text, height=230, label_visibility="collapsed")
         
     with col_cta2:
-        # 4. SUPPORT (Razorpay Link + Buy Me A Coffee Style)
         st.markdown("### ☕ Fuel the Mission")
         st.caption("Support the team:")
         
-        # This badge looks like "Buy Me A Coffee" but links to your Razorpay
+        # 3. TWO SUPPORT OPTIONS
+        # Razorpay Link (Existing)
         st.markdown(
             f"""
-            <a href="https://razorpay.me/@shabdasankalan" target="_blank">
-                <img src="https://img.shields.io/badge/Support-Buy%20Chai%20%2F%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me A Coffee" height="45" />
+            <a href="https://razorpay.me/@shabdasankalan" target="_blank" style="text-decoration: none;">
+                <img src="https://img.shields.io/badge/Support-Buy%20Chai%20%2F%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Support via Razorpay" height="45" style="margin-bottom: 10px;" />
+            </a>
+            """,
+            unsafe_allow_html=True
+        )
+        # Buy Me A Coffee Link (New, using the uploaded image)
+        st.markdown(
+            f"""
+            <a href="https://buymeacoffee.com/shabdasankalan" target="_blank">
+                <img src="image_0.png" alt="Buy Me A Coffee" height="45" />
             </a>
             """,
             unsafe_allow_html=True
         )
 
-    # 5. DOWNLOAD & FEEDBACK
     st.markdown("---")
     col_dl, col_fb = st.columns([1, 1])
     
@@ -138,6 +142,24 @@ Verify your content here: ShabdaSankalan.com"""
         st.download_button("📄 Download Report", st.session_state.nirmal_result, "Nirmal_Report.md")
         
     with col_fb:
-        if st.button("👍 Correct Analysis?"):
-            save_feedback("Nirmal-Bhasha", text, st.session_state.nirmal_result, "Positive")
-            st.toast("Thanks for verifying!")
+        # 1. ENHANCED FEEDBACK SYSTEM
+        st.caption("Rate the analysis:")
+        col_f1, col_f2 = st.columns([1, 1])
+        with col_f1:
+            if st.button("👍 Good", key="good_feedback"):
+                save_feedback("Nirmal-Bhasha", text, st.session_state.nirmal_result, "Positive")
+                st.toast("Thanks for your positive feedback!")
+                st.session_state.feedback_submitted = True
+        with col_f2:
+            if st.button("👎 Bad", key="bad_feedback"):
+                st.session_state.show_negative_feedback = True
+        
+        if st.session_state.get("show_negative_feedback") and not st.session_state.feedback_submitted:
+            with st.form("negative_feedback_form"):
+                negative_reason = st.text_input("Please specify the reason (Optional):", placeholder="e.g., Missed a word, incorrect analysis...")
+                if st.form_submit_button("Submit Feedback"):
+                    save_feedback("Nirmal-Bhasha", text, st.session_state.nirmal_result, "Negative", negative_reason)
+                    st.toast("Thanks for your feedback! We'll improve.")
+                    st.session_state.feedback_submitted = True
+                    st.session_state.show_negative_feedback = False
+                    st.rerun()
