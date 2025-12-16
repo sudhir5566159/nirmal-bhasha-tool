@@ -56,21 +56,6 @@ def save_feedback(tool_name, user_input, ai_output, rating, comment=""):
     except:
         return False
 
-# --- NEW: FUNCTION TO LIST AVAILABLE MODELS ---
-def debug_list_models():
-    """Asks Google: 'What models can this key see?'"""
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_KEY}"
-        response = requests.get(url)
-        if response.status_code == 200:
-            models = response.json().get('models', [])
-            names = [m['name'] for m in models]
-            return f"✅ **Key is Working!** Available Models: {', '.join(names)}"
-        else:
-            return f"❌ **Key is Broken:** {response.text}"
-    except Exception as e:
-        return f"❌ **Connection Error:** {str(e)}"
-
 # --- DIRECT API CALL ---
 def call_gemini_direct(model_name, prompt):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_KEY}"
@@ -89,7 +74,7 @@ def call_gemini_direct(model_name, prompt):
     if response.status_code == 200:
         return response.json()['candidates'][0]['content']['parts'][0]['text']
     else:
-        raise Exception(f"Error {response.status_code}: {response.text}")
+        raise Exception(f"Google Error {response.status_code}: {response.text}")
 
 # --- MAIN LOGIC ---
 def get_ai_response(system_prompt, user_text, engine):
@@ -103,27 +88,14 @@ def get_ai_response(system_prompt, user_text, engine):
             
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
             
-            # 1. Try Flash (New)
-            try: return call_gemini_direct("gemini-1.5-flash", full_prompt)
+            # 1. Try Gemini 2.5 Flash (Your Best Available Model)
+            try: return call_gemini_direct("gemini-2.5-flash", full_prompt)
             except Exception as e1:
-                # 2. Try Pro (Stable)
-                try: return call_gemini_direct("gemini-pro", full_prompt)
+                # 2. Try Gemini 2.0 Flash (Your Backup)
+                try: return call_gemini_direct("gemini-2.0-flash", full_prompt)
                 except Exception as e2:
-                    # 3. IF ALL FAIL -> RUN DIAGNOSTIC
-                    debug_info = debug_list_models()
-                    
-                    return f"""
-                    ### ⚠️ Access Denied (Technical Error)
-                    Your API Key connected, but Google refused access to the models.
-                    
-                    **Diagnostic Report:**
-                    {debug_info}
-                    
-                    **How to Fix:**
-                    1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
-                    2. Create a NEW API Key (in a new project).
-                    3. Update your Secrets file.
-                    """
+                    # 3. IF ALL FAIL -> Return Specific Error
+                    return f"❌ Connection Error. Flash 2.5 Failed: {e1}. Flash 2.0 Failed: {e2}"
 
         elif "Llama" in engine or "Groq" in engine:
             if not groq_client: return "Error: Groq API Key missing."
