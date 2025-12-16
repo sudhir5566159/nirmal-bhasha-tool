@@ -1,5 +1,5 @@
 import streamlit as st
-import requests  # Direct API calls
+import requests
 from groq import Groq
 import anthropic
 import json
@@ -9,10 +9,8 @@ from datetime import datetime
 import time
 
 # --- AUTHENTICATION ---
-# Smart Key Finder
 GEMINI_KEY = None
-possible_names = ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_KEY", "GOOGLE_KEY"]
-
+possible_names = ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_KEY"]
 for name in possible_names:
     if name in st.secrets:
         GEMINI_KEY = st.secrets[name]
@@ -47,8 +45,8 @@ def load_correction_rules():
         return "No correction rules found."
 
 def save_feedback(tool_name, user_input, ai_output, rating, comment=""):
-    file_name = "feedback_log.csv"
     try:
+        file_name = "feedback_log.csv"
         with open(file_name, mode="a", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
             if not os.path.isfile(file_name):
@@ -58,15 +56,27 @@ def save_feedback(tool_name, user_input, ai_output, rating, comment=""):
     except:
         return False
 
-# --- DIRECT API CALL FUNCTION ---
+# --- NEW: FUNCTION TO LIST AVAILABLE MODELS ---
+def debug_list_models():
+    """Asks Google: 'What models can this key see?'"""
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_KEY}"
+        response = requests.get(url)
+        if response.status_code == 200:
+            models = response.json().get('models', [])
+            names = [m['name'] for m in models]
+            return f"✅ **Key is Working!** Available Models: {', '.join(names)}"
+        else:
+            return f"❌ **Key is Broken:** {response.text}"
+    except Exception as e:
+        return f"❌ **Connection Error:** {str(e)}"
+
+# --- DIRECT API CALL ---
 def call_gemini_direct(model_name, prompt):
-    # Standard URL for Google AI Studio keys
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }],
+        "contents": [{"parts": [{"text": prompt}]}],
         "safetySettings": [
             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
             {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
@@ -76,78 +86,60 @@ def call_gemini_direct(model_name, prompt):
     }
     
     response = requests.post(url, headers=headers, json=payload)
-    
     if response.status_code == 200:
         return response.json()['candidates'][0]['content']['parts'][0]['text']
     else:
-        # Return the specific error from Google
-        raise Exception(f"Google Error {response.status_code}: {response.text}")
+        raise Exception(f"Error {response.status_code}: {response.text}")
 
-# --- MAIN AI RESPONSE LOGIC ---
+# --- MAIN LOGIC ---
 def get_ai_response(system_prompt, user_text, engine):
     
-    def make_busy_message(e1, e2):
-        return f"""
-        ### ⚠️ High Traffic Alert (अत्यधिक ट्रैफिक चेतावनी)
-        Due to overwhelming demand, our AI servers are running at full capacity.
-        #### ⏳ Please wait 60 seconds and try again.
-        
-        <br><hr>
-        <details>
-        <summary>👨‍💻 Debug Info</summary>
-        <div style='color:red; font-size:12px; font-family:monospace;'>
-        <b>Attempt 1 (Gemini Pro):</b> {str(e1)}<br><br>
-        <b>Attempt 2 (Gemini 1.0 Pro):</b> {str(e2)}
-        </div>
-        </details>
-        """
-
     try:
         is_ok, count = check_word_count(user_text)
-        if not is_ok:
-            return f"⚠️ **Limit Exceeded:** Your text has **{count} words**. Limit is **{MAX_WORD_LIMIT}**."
+        if not is_ok: return f"Limit Exceeded: {count} words."
 
-        # OPTION 1: GOOGLE GEMINI
         if "Gemini" in engine:
-            if not GEMINI_KEY: 
-                return "❌ **Setup Error:** No API Key found. Please add `GEMINI_API_KEY` to Secrets."
+            if not GEMINI_KEY: return "❌ Setup Error: API Key Missing."
             
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
             
-            # ATTEMPT 1: Try "gemini-pro" (The original, most compatible model)
-            try:
-                return call_gemini_direct("gemini-pro", full_prompt)
+            # 1. Try Flash (New)
+            try: return call_gemini_direct("gemini-1.5-flash", full_prompt)
             except Exception as e1:
-                
-                # ATTEMPT 2: Try "gemini-1.0-pro" (The alternative name)
-                try:
-                    return call_gemini_direct("gemini-1.0-pro", full_prompt)
+                # 2. Try Pro (Stable)
+                try: return call_gemini_direct("gemini-pro", full_prompt)
                 except Exception as e2:
-                    return make_busy_message(e1, e2)
+                    # 3. IF ALL FAIL -> RUN DIAGNOSTIC
+                    debug_info = debug_list_models()
+                    
+                    return f"""
+                    ### ⚠️ Access Denied (Technical Error)
+                    Your API Key connected, but Google refused access to the models.
+                    
+                    **Diagnostic Report:**
+                    {debug_info}
+                    
+                    **How to Fix:**
+                    1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
+                    2. Create a NEW API Key (in a new project).
+                    3. Update your Secrets file.
+                    """
 
-        # OPTION 2: LLAMA (Groq)
         elif "Llama" in engine or "Groq" in engine:
             if not groq_client: return "Error: Groq API Key missing."
-            try:
-                completion = groq_client.chat.completions.create(
-                    messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_text}],
-                    model="llama-3.3-70b-versatile", temperature=0.3
-                )
-                return completion.choices[0].message.content
-            except:
-                 return "⚠️ Groq Service Busy."
+            completion = groq_client.chat.completions.create(
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_text}],
+                model="llama-3.3-70b-versatile", temperature=0.3
+            )
+            return completion.choices[0].message.content
 
-        # OPTION 3: CLAUDE
         elif "Claude" in engine:
             if not anthropic_client: return "Error: Anthropic API Key missing."
-            try:
-                message = anthropic_client.messages.create(
-                    model="claude-3-5-sonnet-20240620", max_tokens=1024, system=system_prompt,
-                    messages=[{"role": "user", "content": user_text}]
-                )
-                return message.content[0].text
-            except:
-                return "⚠️ Claude Service Busy."
+            message = anthropic_client.messages.create(
+                model="claude-3-5-sonnet-20240620", max_tokens=1024, system=system_prompt,
+                messages=[{"role": "user", "content": user_text}]
+            )
+            return message.content[0].text
         else:
             return "Error: Unknown Engine Selected"
             
