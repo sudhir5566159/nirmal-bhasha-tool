@@ -82,31 +82,26 @@ def get_ai_response(system_prompt, user_text, engine):
         is_ok, count = check_word_count(user_text)
         if not is_ok: return f"Limit Exceeded: {count} words."
 
-        # OPTION 1: GEMINI (Google)
+        # OPTION 1: GEMINI (Google) - The Gold Standard
         if "Gemini" in engine:
             if not GEMINI_KEY: return "❌ Setup Error: API Key Missing."
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
             
+            # Smart Fallback: Try 2.5 (Newest) -> 2.0 (Stable)
             try: return call_gemini_direct("gemini-2.5-flash", full_prompt)
             except Exception as e1:
                 try: return call_gemini_direct("gemini-2.0-flash", full_prompt)
                 except Exception as e2:
-                    return f"❌ Connection Error: {e1} | {e2}"
+                    return f"❌ Connection Error. Both Flash models failed.\nDebug: {e1} | {e2}"
 
-        # OPTION 2: QWEN / LLAMA (via Groq)
-        elif "Qwen" in engine or "Llama" in engine or "Groq" in engine:
+        # OPTION 2: LLAMA (via Groq) - The Backup
+        elif "Llama" in engine or "Groq" in engine:
             if not groq_client: return "Error: Groq API Key missing."
-            
-            # Smart Selection based on updated models
-            if "Qwen" in engine:
-                model_name = "qwen/qwen3-32b" # Updated valid model
-            else:
-                model_name = "llama-3.3-70b-versatile"
             
             try:
                 completion = groq_client.chat.completions.create(
                     messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_text}],
-                    model=model_name,
+                    model="llama-3.3-70b-versatile",
                     temperature=0.3
                 )
                 return completion.choices[0].message.content
