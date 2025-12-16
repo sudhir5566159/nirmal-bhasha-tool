@@ -1,5 +1,5 @@
 import streamlit as st
-import requests  # We use this to bypass the broken Google library
+import requests  # Bypass broken libraries
 from groq import Groq
 import anthropic
 import json
@@ -8,13 +8,21 @@ import os
 from datetime import datetime
 import time
 
-# --- AUTHENTICATION ---
-# We retrieve keys, but we don't configure the broken Google library anymore.
-GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", "")
+# --- AUTHENTICATION (Smart Key Finder) ---
+# This block looks for your key under ANY common name
+GEMINI_KEY = None
+possible_names = ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_KEY", "GOOGLE_KEY"]
+
+for name in possible_names:
+    if name in st.secrets:
+        GEMINI_KEY = st.secrets[name]
+        break
+
+# Get other keys
 GROQ_KEY = st.secrets.get("GROQ_API_KEY", "")
 ANTHROPIC_KEY = st.secrets.get("ANTHROPIC_API_KEY", "")
 
-# Initialize other clients if keys exist
+# Initialize clients
 groq_client = Groq(api_key=GROQ_KEY) if GROQ_KEY else None
 try:
     anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_KEY) if ANTHROPIC_KEY else None
@@ -51,10 +59,10 @@ def save_feedback(tool_name, user_input, ai_output, rating, comment=""):
     except:
         return False
 
-# --- DIRECT API CALL FUNCTION (Bypasses Broken Library) ---
+# --- DIRECT API CALL FUNCTION ---
 def call_gemini_direct(model_name, prompt):
     """
-    Sends a direct web request to Google, ignoring the installed Python library.
+    Sends a direct web request to Google, bypassing broken Python libraries.
     """
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_KEY}"
     headers = {"Content-Type": "application/json"}
@@ -73,12 +81,10 @@ def call_gemini_direct(model_name, prompt):
     try:
         response = requests.post(url, headers=headers, json=payload)
         
-        # Check if the request was successful
         if response.status_code == 200:
             return response.json()['candidates'][0]['content']['parts'][0]['text']
         else:
-            # If Google returns an error, raise it so the fallback logic catches it
-            raise Exception(f"Google API Error {response.status_code}: {response.text}")
+            raise Exception(f"Google Error {response.status_code}: {response.text}")
             
     except Exception as e:
         raise Exception(f"Connection Failed: {str(e)}")
@@ -98,8 +104,8 @@ def get_ai_response(system_prompt, user_text, engine):
         <details>
         <summary>👨‍💻 Technical Debug Info</summary>
         <div style='color:red; font-size:12px; font-family:monospace;'>
-        <b>Direct Call 1 (Flash 1.5):</b> {str(e1)}<br><br>
-        <b>Direct Call 2 (Pro 1.5):</b> {str(e2)}
+        <b>Direct Call 1 (Flash):</b> {str(e1)}<br><br>
+        <b>Direct Call 2 (Pro):</b> {str(e2)}
         </div>
         </details>
         """
@@ -110,23 +116,22 @@ def get_ai_response(system_prompt, user_text, engine):
         if not is_ok:
             return f"⚠️ **Limit Exceeded:** Your text has **{count} words**. Limit is **{MAX_WORD_LIMIT}**."
 
-        # OPTION 1: GOOGLE GEMINI (Using Direct Connection)
+        # OPTION 1: GOOGLE GEMINI
         if "Gemini" in engine:
-            if not GEMINI_KEY: return "Error: Gemini API Key missing in secrets."
+            if not GEMINI_KEY: 
+                return "❌ **Setup Error:** No API Key found. Please add `GEMINI_API_KEY` or `GOOGLE_API_KEY` to your Secrets."
             
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
             
-            # ATTEMPT 1: Gemini 1.5 Flash (Direct Web Call)
+            # ATTEMPT 1: Gemini 1.5 Flash
             try:
                 return call_gemini_direct("gemini-1.5-flash", full_prompt)
             except Exception as e1:
-                
-                # ATTEMPT 2: Gemini 1.5 Pro (Direct Web Call)
+                # ATTEMPT 2: Gemini 1.5 Pro
                 try:
                     return call_gemini_direct("gemini-1.5-pro", full_prompt)
                 except Exception as e2:
-                    
-                    # ATTEMPT 3: Gemini Pro 1.0 (Legacy)
+                     # ATTEMPT 3: Gemini Pro 1.0
                     try:
                          return call_gemini_direct("gemini-pro", full_prompt)
                     except Exception as e3:
