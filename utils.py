@@ -5,7 +5,6 @@ import anthropic
 import json
 import csv
 import os
-import random
 from datetime import datetime
 import time
 
@@ -90,7 +89,7 @@ def save_feedback(tool_name, user_input, ai_output, rating, comment=""):
     except:
         return False
 
-# --- SMART AI RESPONSE (The "Bulletproof" Logic) ---
+# --- SMART AI RESPONSE (Bulletproof Logic) ---
 def get_ai_response(system_prompt, user_text, engine):
     try:
         # Check Limits
@@ -101,7 +100,7 @@ def get_ai_response(system_prompt, user_text, engine):
         # OPTION 1: GOOGLE GEMINI (Smart Fallback Strategy)
         if "Gemini" in engine:
             
-            # Define the Safety Settings (Unblock everything to prevent false errors)
+            # Unblock safety filters to prevent false positives on Hindi text
             safety_settings = [
                 {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
                 {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
@@ -109,8 +108,9 @@ def get_ai_response(system_prompt, user_text, engine):
                 {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
             ]
 
-            # ATTEMPT 1: Try the Latest & Greatest (Gemini 2.0 Flash Exp)
+            # ATTEMPT 1: Try Gemini 2.0 Flash (Experimental)
             try:
+                # Exact Name: gemini-2.0-flash-exp
                 model = genai.GenerativeModel("gemini-2.0-flash-exp")
                 response = model.generate_content(
                     system_prompt + "\n\nUser Input: " + user_text,
@@ -118,9 +118,9 @@ def get_ai_response(system_prompt, user_text, engine):
                 )
                 return response.text
             except:
-                # ATTEMPT 2: Fallback to the Workhorse (Gemini 1.5 Flash)
+                # ATTEMPT 2: Fallback to Gemini 1.5 Flash (Stable & High Limit)
                 try:
-                    # print("Falling back to 1.5 Flash...") # Debugging
+                    # Exact Name: gemini-1.5-flash
                     model = genai.GenerativeModel("gemini-1.5-flash")
                     response = model.generate_content(
                         system_prompt + "\n\nUser Input: " + user_text,
@@ -128,9 +128,9 @@ def get_ai_response(system_prompt, user_text, engine):
                     )
                     return response.text
                 except Exception as e:
-                    return f"Server Busy (Please try again in 1 min): {str(e)}"
+                    return f"Server Busy (Quota Exceeded). Please try again in 1 minute. Error: {str(e)}"
 
-        # OPTION 2: META LLAMA 3
+        # OPTION 2: META LLAMA 3 (via Groq)
         elif "Llama" in engine or "Groq" in engine:
             if not groq_client: return "Error: Groq API Key missing."
             completion = groq_client.chat.completions.create(
