@@ -80,7 +80,7 @@ def get_ai_response(system_prompt, user_text, engine):
                 {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
             ]
 
-            # ATTEMPT 1: Try Gemini 1.5 Flash (Fastest & Best)
+            # ATTEMPT 1: Try Gemini 1.5 Flash (The New Standard)
             try:
                 model = genai.GenerativeModel("gemini-1.5-flash")
                 response = model.generate_content(
@@ -88,19 +88,19 @@ def get_ai_response(system_prompt, user_text, engine):
                     safety_settings=safety_settings
                 )
                 return response.text
-            except Exception as e_flash:
-                # ATTEMPT 2: Fallback to Gemini Pro (The "Old Reliable")
-                # If Flash fails (404 error), this will catch it and use Pro instead.
+            except Exception:
+                # ATTEMPT 2: Fallback to Gemini Pro (The Old Standard)
+                # If 1.5 Flash gives a 404 error, this will catch it silently and use Pro instead.
                 try:
-                    # print(f"Flash failed: {e_flash}. Switching to Pro...")
+                    # print("Flash failed. Switching to Gemini Pro...") 
                     model = genai.GenerativeModel("gemini-pro")
                     response = model.generate_content(
                         system_prompt + "\n\nUser Input: " + user_text,
                         safety_settings=safety_settings
                     )
                     return response.text
-                except Exception as e_pro:
-                    # If even Pro fails, then show the Busy Message
+                except:
+                    # If even that fails, show the polite busy message
                     return BUSY_MESSAGE
 
         # OPTION 2: META LLAMA 3
