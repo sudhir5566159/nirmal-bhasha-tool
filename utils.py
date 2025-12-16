@@ -56,7 +56,7 @@ def save_feedback(tool_name, user_input, ai_output, rating, comment=""):
     except:
         return False
 
-# --- DIRECT API CALL ---
+# --- DIRECT GEMINI API CALL ---
 def call_gemini_direct(model_name, prompt):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_KEY}"
     headers = {"Content-Type": "application/json"}
@@ -69,7 +69,6 @@ def call_gemini_direct(model_name, prompt):
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
         ]
     }
-    
     response = requests.post(url, headers=headers, json=payload)
     if response.status_code == 200:
         return response.json()['candidates'][0]['content']['parts'][0]['text']
@@ -83,28 +82,39 @@ def get_ai_response(system_prompt, user_text, engine):
         is_ok, count = check_word_count(user_text)
         if not is_ok: return f"Limit Exceeded: {count} words."
 
+        # OPTION 1: GEMINI (Google)
         if "Gemini" in engine:
             if not GEMINI_KEY: return "❌ Setup Error: API Key Missing."
-            
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
             
-            # 1. Try Gemini 2.5 Flash (Your Best Available Model)
+            # Try 2.5 Flash -> 2.0 Flash
             try: return call_gemini_direct("gemini-2.5-flash", full_prompt)
             except Exception as e1:
-                # 2. Try Gemini 2.0 Flash (Your Backup)
                 try: return call_gemini_direct("gemini-2.0-flash", full_prompt)
                 except Exception as e2:
-                    # 3. IF ALL FAIL -> Return Specific Error
-                    return f"❌ Connection Error. Flash 2.5 Failed: {e1}. Flash 2.0 Failed: {e2}"
+                    return f"❌ Connection Error: {e1} | {e2}"
 
-        elif "Llama" in engine or "Groq" in engine:
+        # OPTION 2: DEEPSEEK / LLAMA (via Groq)
+        elif "DeepSeek" in engine or "Llama" in engine or "Groq" in engine:
             if not groq_client: return "Error: Groq API Key missing."
-            completion = groq_client.chat.completions.create(
-                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_text}],
-                model="llama-3.3-70b-versatile", temperature=0.3
-            )
-            return completion.choices[0].message.content
+            
+            # Smart Selection: If user asks for DeepSeek, give them the reasoning model
+            if "DeepSeek" in engine:
+                model_name = "deepseek-r1-distill-llama-70b"
+            else:
+                model_name = "llama-3.3-70b-versatile"
+            
+            try:
+                completion = groq_client.chat.completions.create(
+                    messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_text}],
+                    model=model_name,
+                    temperature=0.3
+                )
+                return completion.choices[0].message.content
+            except Exception as e:
+                 return f"⚠️ Groq Error: {str(e)}"
 
+        # OPTION 3: CLAUDE
         elif "Claude" in engine:
             if not anthropic_client: return "Error: Anthropic API Key missing."
             message = anthropic_client.messages.create(
