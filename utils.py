@@ -9,7 +9,6 @@ from datetime import datetime
 import time
 
 # --- AUTHENTICATION ---
-# Check if keys exist
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 except:
@@ -55,56 +54,79 @@ def save_feedback(tool_name, user_input, ai_output, rating, comment=""):
     except:
         return False
 
-# --- DIAGNOSTIC AI RESPONSE (Shows Real Errors) ---
+# --- SMART AI RESPONSE (The Self-Healing Logic) ---
 def get_ai_response(system_prompt, user_text, engine):
+    
+    # CUSTOM BUSY MESSAGE (Only shown if ALL models fail)
+    BUSY_MESSAGE = """
+    ### ⚠️ High Traffic Alert (अत्यधिक ट्रैफिक चेतावनी)
+    Due to overwhelming demand, our AI servers are running at full capacity.
+    #### ⏳ Please wait 60 seconds and try again.
+    """
+
     try:
+        # Check Limits
         is_ok, count = check_word_count(user_text)
         if not is_ok:
-            return f"⚠️ **Limit Exceeded:** {count} words."
+            return f"⚠️ **Limit Exceeded:** Your text has **{count} words**. Limit is **{MAX_WORD_LIMIT}**."
 
-        # OPTION 1: GOOGLE GEMINI (Diagnostic Mode)
+        # OPTION 1: GOOGLE GEMINI (Smart Fallback Strategy)
         if "Gemini" in engine:
-            try:
-                # 1. Use the STABLE Model
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                
-                # 2. Safety Settings
-                safety_settings = [
-                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-                ]
+            
+            safety_settings = [
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            ]
 
+            # ATTEMPT 1: Try Gemini 1.5 Flash (Fastest & Best)
+            try:
+                model = genai.GenerativeModel("gemini-1.5-flash")
                 response = model.generate_content(
                     system_prompt + "\n\nUser Input: " + user_text,
                     safety_settings=safety_settings
                 )
                 return response.text
-            except Exception as e:
-                # SHOW THE REAL ERROR (Don't hide it behind 'Busy')
-                return f"❌ **Technical Error:** {str(e)}\n\n*Please check your API Key in .streamlit/secrets.toml*"
+            except Exception as e_flash:
+                # ATTEMPT 2: Fallback to Gemini Pro (The "Old Reliable")
+                # If Flash fails (404 error), this will catch it and use Pro instead.
+                try:
+                    # print(f"Flash failed: {e_flash}. Switching to Pro...")
+                    model = genai.GenerativeModel("gemini-pro")
+                    response = model.generate_content(
+                        system_prompt + "\n\nUser Input: " + user_text,
+                        safety_settings=safety_settings
+                    )
+                    return response.text
+                except Exception as e_pro:
+                    # If even Pro fails, then show the Busy Message
+                    return BUSY_MESSAGE
 
-        # OPTION 2: LLAMA
+        # OPTION 2: META LLAMA 3
         elif "Llama" in engine or "Groq" in engine:
             if not groq_client: return "Error: Groq API Key missing."
-            completion = groq_client.chat.completions.create(
-                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_text}],
-                model="llama-3.3-70b-versatile", temperature=0.3
-            )
-            return completion.choices[0].message.content
+            try:
+                completion = groq_client.chat.completions.create(
+                    messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_text}],
+                    model="llama-3.3-70b-versatile", temperature=0.3
+                )
+                return completion.choices[0].message.content
+            except:
+                 return BUSY_MESSAGE
 
         # OPTION 3: CLAUDE
         elif "Claude" in engine:
             if not anthropic_client: return "Error: Anthropic API Key missing."
-            message = anthropic_client.messages.create(
-                model="claude-3-5-sonnet-20240620", max_tokens=1024, system=system_prompt,
-                messages=[{"role": "user", "content": user_text}]
-            )
-            return message.content[0].text
-            
+            try:
+                message = anthropic_client.messages.create(
+                    model="claude-3-5-sonnet-20240620", max_tokens=1024, system=system_prompt,
+                    messages=[{"role": "user", "content": user_text}]
+                )
+                return message.content[0].text
+            except:
+                return BUSY_MESSAGE
         else:
             return "Error: Unknown Engine Selected"
-            
     except Exception as e:
         return f"System Error: {str(e)}"
