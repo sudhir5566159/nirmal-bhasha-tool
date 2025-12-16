@@ -1,5 +1,6 @@
 import streamlit as st
 import base64
+from datetime import datetime
 from utils import get_ai_response, load_correction_rules, save_feedback
 
 # --- PAGE CONFIG ---
@@ -55,7 +56,7 @@ with col_input:
 
 text = st.text_area("Input Text", height=150, placeholder="Start typing here... \n(Example: Meri gaadi kharab hai)", label_visibility="collapsed")
 
-# --- SESSION STATE ---
+# --- SESSION STATE MANAGEMENT ---
 if "nirmal_result" not in st.session_state:
     st.session_state.nirmal_result = None
 if "analyzed_text" not in st.session_state:
@@ -73,6 +74,7 @@ if st.button("Analyze Purity / शुद्धता जांचें", type="
     
     rules = load_correction_rules()
     
+    # --- UPDATED PROMPT: Asking for Practical Hindi ---
     sys_prompt = f"""
     You are 'Nirmal-Bhasha'. Analyze for Foreign words (Urdu, English, Persian).
     CRITICAL CORRECTION LIST: {rules}
@@ -80,10 +82,14 @@ if st.button("Analyze Purity / शुद्धता जांचें", type="
     OUTPUT FORMAT REQUIREMENTS:
     1. **The 'Wow' Factor:** Start immediately with a Visual Scorecard. Use a Markdown Table.
        - Columns: '🏆 Purity Score', '🚩 Foreign Words', '✨ Verdict'.
-       - Make the verdict encouraging (e.g., "Excellent Effort", "Good Start").
+       - Make the verdict encouraging.
     2. **Visual Progress:** Show a progress bar (e.g., 🟩🟩🟩🟩⬜ 80%).
     3. **The Details:** Detailed Analysis & Word Correction Table.
-    4. **The Fix:** Refined Sentence (Pure Hindi).
+    4. **The Fix:** Refined Sentence (Practical Pure Hindi / व्यावहारिक शुद्ध हिंदी).
+       - **IMPORTANT RULE:** Rewrite the sentence using Pure Hindi (Tatsam) words, BUT prioritize **READABILITY**.
+       - Do NOT use obscure, archaic, or strictly medical Sanskrit terms (e.g., DO NOT use 'Pratishyay' for 'Jukam', DO NOT use 'Mook' for 'Silent' if it sounds odd).
+       - Use standard, educated Hindi words that a common person understands (e.g., use 'Aarambh' instead of 'Shuruwat', 'Vidyalaya' instead of 'School').
+       - If a Pure Hindi word is too difficult, rephrase the sentence to keep it natural.
     """
     
     if text:
@@ -94,7 +100,7 @@ if st.button("Analyze Purity / शुद्धता जांचें", type="
 # --- RESULT DISPLAY ---
 if st.session_state.nirmal_result:
     
-    # 1. THE MAIN RESULT (Enabled HTML for safe rendering)
+    # 1. THE MAIN RESULT
     st.markdown(st.session_state.nirmal_result, unsafe_allow_html=True)
     st.markdown("---")
 
@@ -102,7 +108,19 @@ if st.session_state.nirmal_result:
     col_dl, col_fb = st.columns([1, 1.5])
     
     with col_dl:
-        st.download_button("📄 Download Report", st.session_state.nirmal_result, "Nirmal_Report.md")
+        # --- NEW DOWNLOAD LOGIC: Combine Input + Output ---
+        report_content = f"""# 🌸 Nirmal Bhasha Analysis Report
+Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+## 📥 Input Text (आपका पाठ)
+{st.session_state.analyzed_text}
+
+---
+
+## 📊 Analysis Output (विश्लेषण)
+{st.session_state.nirmal_result}
+        """
+        st.download_button("📄 Download Report", report_content, "Nirmal_Report.md")
         
     with col_fb:
         if not st.session_state.feedback_submitted:
