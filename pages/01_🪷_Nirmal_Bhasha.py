@@ -2,8 +2,7 @@ import streamlit as st
 from utils import get_ai_response, load_correction_rules, save_feedback
 
 # --- PAGE CONFIG ---
-# We use the Lotus emoji here. If it looks like a box to you, don't worry.
-st.set_page_config(page_title="Nirmal-Bhasha", page_icon="🪷", layout="centered")
+st.set_page_config(page_title="Nirmal-Bhasha", page_icon="🌸", layout="centered")
 
 # --- HEADER ---
 col_empty, col_endorser = st.columns([3, 1])
@@ -18,9 +17,12 @@ with col_endorser:
 
 col_logo, col_text = st.columns([1.5, 4.5])
 with col_logo:
-    # FORCE THE LOTUS SYMBOL (Encoded for safety)
-    # This guarantees the Lotus appears even if your file name looks like a box
-    st.markdown("<div style='font-size: 80px; text-align: center;'>🪷</div>", unsafe_allow_html=True)
+    # 1. BRAND LOGO CHECK (As requested)
+    try:
+        st.image("nirmal_logo.png", width=120)
+    except:
+        # Fallback if image is missing
+        st.markdown("<div style='font-size: 80px; text-align: center;'>🌸</div>", unsafe_allow_html=True)
 
 with col_text:
     st.markdown("""
@@ -49,16 +51,19 @@ if "nirmal_result" not in st.session_state:
 if st.button("Analyze Purity / शुद्धता जांचें", type="primary", use_container_width=True):
     rules = load_correction_rules()
     
-    # SYSTEM PROMPT
+    # 2. STUNNING OUTPUT PROMPT
+    # We explicitly ask AI for a "Scorecard" first to make the day for the user.
     sys_prompt = f"""
     You are 'Nirmal-Bhasha'. Analyze for Foreign words (Urdu, English, Persian).
     CRITICAL CORRECTION LIST: {rules}
     
     OUTPUT FORMAT REQUIREMENTS:
-    1. Start with a **"Visual Dashboard"** (Markdown tables).
-    2. Use a **"Visual Progress Bar"** for score (e.g. 🟩🟩🟩⬜ 80%).
-    3. Detailed Analysis & Word Correction Table.
-    4. Refined Sentence.
+    1. **The 'Wow' Factor:** Start immediately with a Visual Scorecard. Use a Markdown Table.
+       - Columns: '🏆 Purity Score', '🚩 Foreign Words', '✨ Verdict'.
+       - Make the verdict encouraging (e.g., "Excellent Effort", "Good Start").
+    2. **Visual Progress:** Show a progress bar (e.g., 🟩🟩🟩🟩⬜ 80%).
+    3. **The Details:** Detailed Analysis & Word Correction Table.
+    4. **The Fix:** Refined Sentence (Pure Hindi).
     """
     
     if text:
@@ -69,48 +74,61 @@ if st.button("Analyze Purity / शुद्धता जांचें", type="
 # --- RESULT DISPLAY ---
 if st.session_state.nirmal_result:
     
-    # 1. THE REPORT
+    # 1. THE REPORT (Now starts with stunning table)
     st.markdown(st.session_state.nirmal_result)
     
     st.markdown("---")
     
-    # 2. THE REALITY CHECK
+    # 2. THE REALITY CHECK (Bilingual & Formatted)
     st.warning("""
     #### ⚠️ क्या 2050 तक हिंदी बदल जाएगी? (Will Hindi change forever?)
-    **The Reality:** Experts warn that "Hinglish" is rapidly replacing our vocabulary. 40% of urban speech is now foreign. We built this AI to reverse that trend.
     
-    **Transparency:**
+    **सच्चाई (The Reality):**
+    विशेषज्ञ चेतावनी देते हैं कि "हिंग्लिश" हमारी शब्दावली को तेजी से बदल रही है। शहरी बोलचाल का 40% हिस्सा अब विदेशी है। हमने इस रुझान को पलटने के लिए यह AI बनाया है।
+    *(Experts warn that "Hinglish" is rapidly replacing our vocabulary. 40% of urban speech is now foreign. We built this AI to reverse that trend.)*
+    
+    **पारदर्शिता (Transparency):**
     * **AI Cost for this analysis:** ₹2.00 (Paid by us)
     * **Cost to you:** ₹0.00 (Free)
     
-    If this tool adds value, help us keep the servers running.
+    **If this tool adds value, help us keep the servers running.**
     """)
     
     col_cta1, col_cta2 = st.columns(2)
     
     with col_cta1:
-        # 3. SHARE TEXT
+        # 3. SHARE TEXT (Fixed Visibility)
         st.markdown("### 📢 Share the Pride")
         st.caption("Copy this text for WhatsApp:")
         
         share_text = """✅ Hindi Purity Verified (हिंदी शुद्धता सत्यापित)
 🛡️ I stand for Pure Hindi.
-Today, I took a minute to filter out foreign words from my communication.
+Today, I took a minute to filter out foreign words.
 
 Status: [Insert Score]% Pure (Shuddh)
 Foreign Words Found: [Count]
 Verdict: Excellent Standard
 
-Let's stop normalizing Hinglish. Small steps save a language. 
+Let's stop normalizing Hinglish.
 Verify your content here: ShabdaSankalan.com"""
         
-        st.code(share_text, language="text")
+        # Using text_area makes it wrap automatically so user sees everything "in a go"
+        st.text_area("Copy text below:", value=share_text, height=230, label_visibility="collapsed")
         
     with col_cta2:
-        # 4. SUPPORT (Reciprocity)
+        # 4. SUPPORT (Razorpay Link + Buy Me A Coffee Style)
         st.markdown("### ☕ Fuel the Mission")
-        st.caption("Keep this tool free for students.")
-        st.markdown("[![Support via UPI](https://img.shields.io/badge/Support-₹20_Chai-orange?style=for-the-badge&logo=bhim)](https://www.google.com)")
+        st.caption("Support the team:")
+        
+        # This badge looks like "Buy Me A Coffee" but links to your Razorpay
+        st.markdown(
+            f"""
+            <a href="https://razorpay.me/@shabdasankalan" target="_blank">
+                <img src="https://img.shields.io/badge/Support-Buy%20Chai%20%2F%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me A Coffee" height="45" />
+            </a>
+            """,
+            unsafe_allow_html=True
+        )
 
     # 5. DOWNLOAD & FEEDBACK
     st.markdown("---")
