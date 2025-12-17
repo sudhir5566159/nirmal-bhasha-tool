@@ -151,6 +151,7 @@ def save_feedback(tool_name, user_input, ai_output, rating, comment=""):
 
 # --- API CALLS ---
 def call_gemini_direct(model_name, prompt):
+    # Standard URL for Gemini
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = {
@@ -164,9 +165,8 @@ def call_gemini_direct(model_name, prompt):
         raise Exception(f"Google Error {response.status_code}: {response.text}")
 
 def call_huggingface_direct(prompt):
-    # SWITCHED TO: Microsoft Phi-3.5 Mini (Very Stable & Free)
-    # The previous Mistral Nemo link was unstable on the free tier.
-    API_URL = "https://api-inference.huggingface.co/models/microsoft/Phi-3.5-mini-instruct"
+    # FIXED URL: Using 'router' instead of 'api-inference' to solve Error 410
+    API_URL = "https://router.huggingface.co/models/microsoft/Phi-3.5-mini-instruct"
     headers = {"Authorization": f"Bearer {HF_KEY}"}
     payload = {
         "inputs": prompt,
@@ -185,26 +185,28 @@ def get_ai_response(system_prompt, user_text, engine):
         is_ok, count = check_word_count(user_text)
         if not is_ok: return get_fallback_message("Limit Exceeded", f"Text is {count} words.")
 
-        # 1. GEMINI (Google) - The Stable Trio
+        # 1. GEMINI (Google) - The "Legacy Shield" Strategy
         if "Gemini" in engine:
             if not GEMINI_KEY: return get_fallback_message("Setup Error", "API Key Missing.")
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
             
-            # ATTEMPT 1: Gemini 1.5 Flash (Most Reliable)
+            # ATTEMPT 1: Gemini 1.5 Flash (The Standard)
             try: 
                 return call_gemini_direct("gemini-1.5-flash", full_prompt)
             except Exception as e1:
-                # ATTEMPT 2: Gemini 1.5 Pro (Smarter Backup)
+                # ATTEMPT 2: Gemini 1.5 Flash 001 (Specific Version)
+                # Sometimes the alias fails, but the specific version works.
                 try: 
-                    return call_gemini_direct("gemini-1.5-pro", full_prompt)
+                    return call_gemini_direct("gemini-1.5-flash-001", full_prompt)
                 except Exception as e2:
-                    # ATTEMPT 3: Gemini Pro 1.0 (Legacy Safety Net)
+                    # ATTEMPT 3: Gemini Pro 1.0 (The Legacy Shield)
+                    # This model is older but extremely stable and rarely 404s.
                     try: 
                         return call_gemini_direct("gemini-pro", full_prompt)
                     except Exception as e3:
-                        return get_fallback_message("Google Busy", f"{e1} | {e2}")
+                        return get_fallback_message("Google Busy", f"{e1} | {e2} | {e3}")
 
-        # 2. LLAMA (Groq) - Speed
+        # 2. LLAMA (Groq) - The Speedster
         elif "Llama" in engine or "Groq" in engine:
             if not groq_client: return get_fallback_message("Setup Error", "Groq Key Missing")
             try:
@@ -215,8 +217,8 @@ def get_ai_response(system_prompt, user_text, engine):
                 return completion.choices[0].message.content
             except Exception as e: return get_fallback_message("Groq Busy", str(e))
 
-        # 3. MISTRAL / PHI (Hugging Face) - Backup
-        elif "Mistral" in engine or "Hugging Face" in engine:
+        # 3. MISTRAL / PHI (Hugging Face) - The Backup
+        elif "Mistral" in engine or "Hugging Face" in engine or "Phi" in engine:
             if not HF_KEY: return get_fallback_message("Setup Error", "HF Key Missing")
             full_prompt = f"<s>[INST] {system_prompt} \n\n Analyze this text: {user_text} [/INST]"
             try: return call_huggingface_direct(full_prompt)
