@@ -2,13 +2,13 @@ import streamlit as st
 import requests
 from groq import Groq
 import anthropic
-import json
-import csv
-import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
-import time
 
 # --- AUTHENTICATION ---
+# Keys are automatically fetched from secrets.toml
 GEMINI_KEY = None
 possible_names = ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_KEY"]
 for name in possible_names:
@@ -18,6 +18,11 @@ for name in possible_names:
 
 GROQ_KEY = st.secrets.get("GROQ_API_KEY", "")
 ANTHROPIC_KEY = st.secrets.get("ANTHROPIC_API_KEY", "")
+HF_KEY = st.secrets.get("HUGGINGFACE_API_KEY", "")
+
+# Email Credentials
+EMAIL_USER = st.secrets.get("EMAIL_USER", "")
+EMAIL_PASSWORD = st.secrets.get("EMAIL_PASSWORD", "")
 
 # Initialize Clients
 groq_client = Groq(api_key=GROQ_KEY) if GROQ_KEY else None
@@ -30,18 +35,94 @@ except:
 MAX_WORD_LIMIT = 1000 
 POE_LINK = "https://poe.com/Nirmal-Bhasha"
 
-# --- HELPER: FALLBACK MESSAGE ---
+# --- HELPER: ROYAL FALLBACK MESSAGE ---
 def get_fallback_message(error_type, details=""):
-    # Using simple string concatenation to avoid SyntaxErrors with triple quotes
-    msg = "# ⚠️ System Busy / सर्वर व्यस्त है\n\n"
-    msg += "**Don't worry! You can still use the app instantly.**\n"
-    msg += "*(चिंता न करें! आप अभी भी ऐप का उपयोग कर सकते हैं।)*\n\n"
-    msg += "Our free server is currently overloaded. We have a **Premium High-Speed Backup** available for free on Poe.com.\n\n"
-    msg += f"## 👉 [🚀 CLICK HERE to Continue the same Nirmal Bhasha 🌸 on Poe.com without any disruption]({POE_LINK})\n"
-    msg += "*(Clicking above will open the backup server, which never gets stuck)*\n\n"
-    msg += "---\n"
-    msg += f"<small>Technical Error: {error_type} | {details}</small>"
-    return msg
+    """
+    Returns a Premium, Royal-styled message when the server is busy.
+    """
+    return f"""
+    <div style="background-color: #f8f9fa; border-left: 5px solid #2c3e50; padding: 20px; border-radius: 5px; margin: 20px 0;">
+        <h3 style="color: #2c3e50; margin-top: 0;">🛡️ High Traffic Notification / सर्वर व्यस्त है</h3>
+        <p style="font-size: 16px; color: #444;">
+            **Don't worry! Your experience will not be interrupted.**<br>
+            Our free servers are currently running at full capacity due to high demand.
+        </p>
+        <p style="font-size: 16px; color: #444;">
+            We have reserved a <b>Priority Slot</b> for you on our premium backup server hosted on Poe.
+        </p>
+        <br>
+        <a href="{POE_LINK}" target="_blank" style="text-decoration:none;">
+            <div style="
+                background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%);
+                color: white;
+                padding: 12px 25px;
+                border-radius: 8px;
+                text-align: center;
+                font-weight: 600;
+                font-size: 16px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                display: inline-block;">
+                🚀 Switch to High-Speed Server (Unlimited)
+            </div>
+        </a>
+        <br><br>
+        <small style="color: #7f8c8d;">Technical Code: {error_type} | {details}</small>
+    </div>
+    """
+
+# --- HELPER: SEND EMAIL REPORT ---
+def send_email_report(user_email, report_content, input_text):
+    if not EMAIL_USER or not EMAIL_PASSWORD:
+        return False, "Email credentials missing in secrets."
+
+    msg = MIMEMultipart()
+    msg['From'] = f"Nirmal Bhasha AI <{EMAIL_USER}>"
+    msg['To'] = user_email
+    msg['Subject'] = "🌸 Your Nirmal Bhasha Analysis Report"
+
+    # Convert Markdown to basic HTML
+    html_report = report_content.replace("\n", "<br>").replace("##", "<h3 style='color:#E91E63;'>").replace("**", "<b>")
+    
+    body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; padding: 20px;">
+          <h2 style="color: #E91E63; text-align: center;">🌸 Nirmal Bhasha Report</h2>
+          <p>Namaste,</p>
+          <p>Here is the purity analysis for the text you submitted.</p>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <strong style="color: #555;">📥 Your Input:</strong><br>
+            <i>"{input_text[:200]}..."</i>
+          </div>
+          
+          <hr style="border: 0; border-top: 1px solid #eee;">
+          
+          <h3>📊 Analysis Results</h3>
+          <div>{html_report}</div>
+          
+          <hr style="border: 0; border-top: 1px solid #eee;">
+          
+          <div style="text-align: center; font-size: 12px; color: #999; margin-top: 20px;">
+            Generated by <b>ShabdaSankalan AI</b><br>
+            <a href="https://shabdasankalan.com" style="color: #E91E63; text-decoration: none;">Visit Website</a>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+    msg.attach(MIMEText(body, 'html'))
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(EMAIL_USER, EMAIL_PASSWORD)
+        text = msg.as_string()
+        server.sendmail(EMAIL_USER, user_email, text)
+        server.quit()
+        return True, "Email sent successfully!"
+    except Exception as e:
+        return False, str(e)
 
 # --- HELPER FUNCTIONS ---
 def check_word_count(text):
@@ -70,18 +151,13 @@ def save_feedback(tool_name, user_input, ai_output, rating, comment=""):
     except:
         return False
 
-# --- DIRECT GEMINI API CALL ---
+# --- API CALLS ---
 def call_gemini_direct(model_name, prompt):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "safetySettings": [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
-        ]
+        "safetySettings": [{"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"}]
     }
     response = requests.post(url, headers=headers, json=payload)
     if response.status_code == 200:
@@ -89,44 +165,55 @@ def call_gemini_direct(model_name, prompt):
     else:
         raise Exception(f"Google Error {response.status_code}: {response.text}")
 
+def call_huggingface_direct(prompt):
+    # Mistral-Nemo-Instruct (Free, Reliable, Good for Hindi)
+    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-Nemo-Instruct-2407"
+    headers = {"Authorization": f"Bearer {HF_KEY}"}
+    payload = {
+        "inputs": prompt,
+        "parameters": {"max_new_tokens": 1500, "return_full_text": False}
+    }
+    response = requests.post(API_URL, headers=headers, json=payload)
+    if response.status_code == 200:
+        return response.json()[0]['generated_text']
+    else:
+        raise Exception(f"HF Error {response.status_code}: {response.text}")
+
 # --- MAIN LOGIC ---
 def get_ai_response(system_prompt, user_text, engine):
     
     try:
-        # 1. CHECK WORD LIMIT
         is_ok, count = check_word_count(user_text)
-        if not is_ok: 
-            return get_fallback_message("Limit Exceeded", f"Text is {count} words.")
+        if not is_ok: return get_fallback_message("Limit Exceeded", f"Text is {count} words.")
 
-        # OPTION 1: GEMINI (Google)
+        # 1. GEMINI (Google) - Primary
         if "Gemini" in engine:
             if not GEMINI_KEY: return get_fallback_message("Setup Error", "API Key Missing.")
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
-            
-            # Try 2.5 Flash -> 2.0 Flash -> Poe Fallback
-            try:
-                return call_gemini_direct("gemini-2.5-flash", full_prompt)
+            try: return call_gemini_direct("gemini-2.5-flash", full_prompt)
             except Exception as e1:
-                try:
-                    return call_gemini_direct("gemini-2.0-flash", full_prompt)
-                except Exception as e2:
-                    return get_fallback_message("Connection Failed", "Google Servers Busy")
+                try: return call_gemini_direct("gemini-2.0-flash", full_prompt)
+                except Exception as e2: return get_fallback_message("Google Busy", f"{e1}")
 
-        # OPTION 2: LLAMA (via Groq)
+        # 2. LLAMA (Groq) - Speed
         elif "Llama" in engine or "Groq" in engine:
             if not groq_client: return get_fallback_message("Setup Error", "Groq Key Missing")
-            
             try:
                 completion = groq_client.chat.completions.create(
                     messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_text}],
-                    model="llama-3.3-70b-versatile",
-                    temperature=0.3
+                    model="llama-3.3-70b-versatile", temperature=0.3
                 )
                 return completion.choices[0].message.content
-            except Exception as e:
-                 return get_fallback_message("Groq Busy", str(e))
+            except Exception as e: return get_fallback_message("Groq Busy", str(e))
 
-        # OPTION 3: CLAUDE
+        # 3. MISTRAL (Hugging Face) - Backup
+        elif "Mistral" in engine or "Hugging Face" in engine:
+            if not HF_KEY: return get_fallback_message("Setup Error", "HF Key Missing")
+            full_prompt = f"<s>[INST] {system_prompt} \n\n Analyze this text: {user_text} [/INST]"
+            try: return call_huggingface_direct(full_prompt)
+            except Exception as e: return get_fallback_message("Hugging Face Busy", str(e))
+
+        # 4. CLAUDE (Anthropic) - Premium
         elif "Claude" in engine:
             if not anthropic_client: return get_fallback_message("Setup Error", "Anthropic Key Missing")
             try:
@@ -135,8 +222,8 @@ def get_ai_response(system_prompt, user_text, engine):
                     messages=[{"role": "user", "content": user_text}]
                 )
                 return message.content[0].text
-            except Exception as e:
-                return get_fallback_message("Claude Busy", str(e))
+            except Exception as e: return get_fallback_message("Claude Busy", str(e))
+            
         else:
             return get_fallback_message("Error", "Unknown Engine")
             
