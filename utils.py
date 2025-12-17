@@ -201,15 +201,16 @@ def get_ai_response(system_prompt, user_text, engine):
             if not GEMINI_KEY: return get_fallback_message("Setup Error", "API Key Missing.")
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
             
-            # ATTEMPT 1: Gemini 2.5 Flash Lite
+            # ATTEMPT 1: Gemini 2.5 Flash Lite (Primary)
             try: 
                 return call_gemini_direct("gemini-2.5-flash-lite", full_prompt)
             except Exception as e1:
-                # ATTEMPT 2: Gemini Pro (Legacy 1.0) - Very stable
+                # ATTEMPT 2: Gemini 1.5 Flash (Standard Backup) - CHANGED HERE
                 try: 
-                    return call_gemini_direct("gemini-pro", full_prompt)
+                    # 'gemini-pro' काम नहीं कर रहा है, इसलिए हम 'gemini-1.5-flash' उपयोग करेंगे
+                    return call_gemini_direct("gemini-1.5-flash", full_prompt)
                 except Exception as e2:
-                    return get_fallback_message("Google Busy", f"{e1} | {e2}")
+                    return get_fallback_message("Google Busy", f"Primary: {e1} | Backup: {e2}")
 
         # 3. MISTRAL / PHI (Hugging Face) - The Safety Net
         elif "Mistral" in engine or "Hugging Face" in engine or "Phi" in engine:
@@ -234,4 +235,5 @@ def get_ai_response(system_prompt, user_text, engine):
             
     except Exception as e:
         return get_fallback_message("System Crash", str(e))
+
 
