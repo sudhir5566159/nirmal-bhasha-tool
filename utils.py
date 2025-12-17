@@ -161,12 +161,12 @@ def call_gemini_direct(model_name, prompt):
     if response.status_code == 200:
         return response.json()['candidates'][0]['content']['parts'][0]['text']
     else:
-        # Pass the exception up so the fallback logic can catch it
         raise Exception(f"Google Error {response.status_code}: {response.text}")
 
 def call_huggingface_direct(prompt):
-    # UPDATED: Using the 'router' URL to fix Error 410
-    API_URL = "https://router.huggingface.co/models/mistralai/Mistral-Nemo-Instruct-2407"
+    # SWITCHED TO: Microsoft Phi-3.5 Mini (Very Stable & Free)
+    # The previous Mistral Nemo link was unstable on the free tier.
+    API_URL = "https://api-inference.huggingface.co/models/microsoft/Phi-3.5-mini-instruct"
     headers = {"Authorization": f"Bearer {HF_KEY}"}
     payload = {
         "inputs": prompt,
@@ -185,25 +185,24 @@ def get_ai_response(system_prompt, user_text, engine):
         is_ok, count = check_word_count(user_text)
         if not is_ok: return get_fallback_message("Limit Exceeded", f"Text is {count} words.")
 
-        # 1. GEMINI (Google) - The Triple Fallback
+        # 1. GEMINI (Google) - The Stable Trio
         if "Gemini" in engine:
             if not GEMINI_KEY: return get_fallback_message("Setup Error", "API Key Missing.")
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
             
-            # ATTEMPT 1: Gemini 2.5 Flash (Newest)
+            # ATTEMPT 1: Gemini 1.5 Flash (Most Reliable)
             try: 
-                return call_gemini_direct("gemini-2.5-flash", full_prompt)
+                return call_gemini_direct("gemini-1.5-flash", full_prompt)
             except Exception as e1:
-                # ATTEMPT 2: Gemini 2.0 Flash (Stable)
+                # ATTEMPT 2: Gemini 1.5 Pro (Smarter Backup)
                 try: 
-                    return call_gemini_direct("gemini-2.0-flash", full_prompt)
+                    return call_gemini_direct("gemini-1.5-pro", full_prompt)
                 except Exception as e2:
-                    # ATTEMPT 3: Gemini 1.5 Flash (Safety Net)
+                    # ATTEMPT 3: Gemini Pro 1.0 (Legacy Safety Net)
                     try: 
-                        return call_gemini_direct("gemini-1.5-flash", full_prompt)
+                        return call_gemini_direct("gemini-pro", full_prompt)
                     except Exception as e3:
-                        # If ALL 3 fail, then show the Busy Message
-                        return get_fallback_message("Google Busy", f"All models failed. {e1} | {e2} | {e3}")
+                        return get_fallback_message("Google Busy", f"{e1} | {e2}")
 
         # 2. LLAMA (Groq) - Speed
         elif "Llama" in engine or "Groq" in engine:
@@ -216,7 +215,7 @@ def get_ai_response(system_prompt, user_text, engine):
                 return completion.choices[0].message.content
             except Exception as e: return get_fallback_message("Groq Busy", str(e))
 
-        # 3. MISTRAL (Hugging Face) - Backup
+        # 3. MISTRAL / PHI (Hugging Face) - Backup
         elif "Mistral" in engine or "Hugging Face" in engine:
             if not HF_KEY: return get_fallback_message("Setup Error", "HF Key Missing")
             full_prompt = f"<s>[INST] {system_prompt} \n\n Analyze this text: {user_text} [/INST]"
