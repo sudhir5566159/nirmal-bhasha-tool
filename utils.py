@@ -201,9 +201,9 @@ def get_ai_response(system_prompt, user_text, engine):
             if not GEMINI_KEY: return get_fallback_message("Setup Error", "API Key Missing.")
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
             
-            # ATTEMPT 1: Gemini 1.5 Flash (Standard)
+            # ATTEMPT 1: Gemini 2.5 Flash Lite
             try: 
-                return call_gemini_direct("gemini-1.5-flash", full_prompt)
+                return call_gemini_direct("gemini-2.5-flash-lite", full_prompt)
             except Exception as e1:
                 # ATTEMPT 2: Gemini Pro (Legacy 1.0) - Very stable
                 try: 
@@ -234,3 +234,4 @@ def get_ai_response(system_prompt, user_text, engine):
             
     except Exception as e:
         return get_fallback_message("System Crash", str(e))
+
