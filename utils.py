@@ -6,9 +6,11 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+import json
+import csv
+import os
 
 # --- AUTHENTICATION ---
-# Keys are automatically fetched from secrets.toml
 GEMINI_KEY = None
 possible_names = ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_KEY"]
 for name in possible_names:
@@ -37,9 +39,6 @@ POE_LINK = "https://poe.com/Nirmal-Bhasha"
 
 # --- HELPER: ROYAL FALLBACK MESSAGE ---
 def get_fallback_message(error_type, details=""):
-    """
-    Returns a Premium, Royal-styled message when the server is busy.
-    """
     return f"""
     <div style="background-color: #f8f9fa; border-left: 5px solid #2c3e50; padding: 20px; border-radius: 5px; margin: 20px 0;">
         <h3 style="color: #2c3e50; margin-top: 0;">🛡️ High Traffic Notification / सर्वर व्यस्त है</h3>
@@ -80,7 +79,6 @@ def send_email_report(user_email, report_content, input_text):
     msg['To'] = user_email
     msg['Subject'] = "🌸 Your Nirmal Bhasha Analysis Report"
 
-    # Convert Markdown to basic HTML
     html_report = report_content.replace("\n", "<br>").replace("##", "<h3 style='color:#E91E63;'>").replace("**", "<b>")
     
     body = f"""
@@ -163,11 +161,12 @@ def call_gemini_direct(model_name, prompt):
     if response.status_code == 200:
         return response.json()['candidates'][0]['content']['parts'][0]['text']
     else:
+        # Pass the exception up so the fallback logic can catch it
         raise Exception(f"Google Error {response.status_code}: {response.text}")
 
 def call_huggingface_direct(prompt):
-    # Mistral-Nemo-Instruct (Free, Reliable, Good for Hindi)
-    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-Nemo-Instruct-2407"
+    # UPDATED: Using the 'router' URL to fix Error 410
+    API_URL = "https://router.huggingface.co/models/mistralai/Mistral-Nemo-Instruct-2407"
     headers = {"Authorization": f"Bearer {HF_KEY}"}
     payload = {
         "inputs": prompt,
@@ -186,14 +185,25 @@ def get_ai_response(system_prompt, user_text, engine):
         is_ok, count = check_word_count(user_text)
         if not is_ok: return get_fallback_message("Limit Exceeded", f"Text is {count} words.")
 
-        # 1. GEMINI (Google) - Primary
+        # 1. GEMINI (Google) - The Triple Fallback
         if "Gemini" in engine:
             if not GEMINI_KEY: return get_fallback_message("Setup Error", "API Key Missing.")
             full_prompt = system_prompt + "\n\nUser Input: " + user_text
-            try: return call_gemini_direct("gemini-2.5-flash", full_prompt)
+            
+            # ATTEMPT 1: Gemini 2.5 Flash (Newest)
+            try: 
+                return call_gemini_direct("gemini-2.5-flash", full_prompt)
             except Exception as e1:
-                try: return call_gemini_direct("gemini-2.0-flash", full_prompt)
-                except Exception as e2: return get_fallback_message("Google Busy", f"{e1}")
+                # ATTEMPT 2: Gemini 2.0 Flash (Stable)
+                try: 
+                    return call_gemini_direct("gemini-2.0-flash", full_prompt)
+                except Exception as e2:
+                    # ATTEMPT 3: Gemini 1.5 Flash (Safety Net)
+                    try: 
+                        return call_gemini_direct("gemini-1.5-flash", full_prompt)
+                    except Exception as e3:
+                        # If ALL 3 fail, then show the Busy Message
+                        return get_fallback_message("Google Busy", f"All models failed. {e1} | {e2} | {e3}")
 
         # 2. LLAMA (Groq) - Speed
         elif "Llama" in engine or "Groq" in engine:
