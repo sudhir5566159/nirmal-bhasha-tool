@@ -45,13 +45,13 @@ st.markdown("---")
 # --- INPUT SECTION ---
 col_input, col_settings = st.columns([3, 1])
 with col_settings:
-    # UPDATED DROPDOWN: Only Forever-Free Engines
+    # UPDATED DROPDOWN: Reflecting the Stable Engine Choice
     model = st.selectbox(
         "Engine / इंजन:", 
         [
-            "Gemini 2.5 Flash (Google) - Best", 
+            "Gemini 1.5 Flash (Google) - Best", 
             "Llama 3.3 (via Groq) - Fastest", 
-            "Mistral Nemo (via Hugging Face) - Backup",
+            "Phi-3.5 (via Hugging Face) - Backup",
             "Claude 3.5 Sonnet (Anthropic)" 
         ], 
         label_visibility="collapsed"
